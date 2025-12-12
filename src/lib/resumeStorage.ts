@@ -8,7 +8,7 @@ import {
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
-import { firebaseApp } from "@/lib/firebase/auth";
+import { firebaseApp } from "@/lib/firebase";
 
 // Single storage instance for the app
 const storage = getStorage(firebaseApp);

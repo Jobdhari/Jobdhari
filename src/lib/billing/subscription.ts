@@ -1,5 +1,5 @@
 // src/lib/billing/subscription.ts
-import { db, auth } from "@/lib/firebase/auth";
+import { db, auth } from "@/lib/firebase";
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 
 export type Plan = "free" | "pro" | "enterprise";

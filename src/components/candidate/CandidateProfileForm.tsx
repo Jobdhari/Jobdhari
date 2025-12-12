@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 
-import { auth } from "@/lib/firebase/auth";
+import { auth } from "@/lib/firebase";
 import { saveCandidateProfile, getCandidateProfile } from "@/lib/firebase/candidateService";
 import type { CandidateProfile } from "@/lib/types/candidate";
 

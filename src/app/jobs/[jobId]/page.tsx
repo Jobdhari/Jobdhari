@@ -1,5 +1,5 @@
 import { applyToJob, hasCandidateAppliedToJob } from "@/lib/firebase/jobService";
-import { auth } from "@/lib/firebase/auth";
+import { auth } from "@/lib/firebase";
 export default function JobPage({ params }: { params: { jobId: string } }) {
   const jobId = params.jobId;
 

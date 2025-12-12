@@ -1,4 +1,4 @@
-import { db } from "@/lib/firebase/auth";
+import { db } from "@/lib/firebase";
 import { doc, runTransaction } from "firebase/firestore";
 
 /**

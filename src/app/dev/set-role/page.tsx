@@ -1,6 +1,6 @@
 "use client";
 
-import { auth, db } from "@/lib/firebase/auth";
+import { auth, db } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
 
 export default function SetRolePage() {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuthState } from "react-firebase-hooks/auth";
-import { auth } from "@/lib/firebase/auth";      // wherever your auth is
+import { auth } from "@/lib/firebase";      // wherever your auth is
 import { createJob, JobFormValues } from "@/lib/firebase/jobService";
 import { toast } from "sonner";
 

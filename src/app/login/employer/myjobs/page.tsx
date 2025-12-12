@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { collection, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase/auth";
+import { db, auth } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 

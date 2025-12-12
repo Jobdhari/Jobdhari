@@ -8,7 +8,7 @@ import {
   setDoc,
   where,
 } from "firebase/firestore";
-import { db } from "./db";
+import { db } from "@/lib/firebase";
 
 // Small summary of a job that we store inside the application document.
 // This lets "My Jobs" show data WITHOUT extra reads from the jobs collection.

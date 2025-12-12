@@ -1,5 +1,5 @@
 // src/lib/applications.ts
-import { db } from "@/lib/firebase/auth";
+import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 export type ApplicationPayload = {

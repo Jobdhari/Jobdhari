@@ -1,6 +1,6 @@
 // src/lib/firebase/candidatePrefsService.ts
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "./db";
+import { db } import { auth, db } from "@/lib/firebase";;
 
 export type CandidateQuickPrefs = {
   preferredRole: string;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { collection, getDocs, updateDoc, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase/auth";
+import { db } from "@/lib/firebase";
 import { useRoleGuard } from "@/hooks/useRoleGuard";
 
 interface User {

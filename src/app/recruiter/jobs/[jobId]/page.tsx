@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { db } from "@/lib/firebase/auth";
+import { db } from "@/lib/firebase";
 import {
   collection,
   query,

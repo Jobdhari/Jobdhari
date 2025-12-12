@@ -7,7 +7,7 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
 } from "firebase/auth";
-import { auth, db } from "@/lib/firebase/auth";
+import { auth, db } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

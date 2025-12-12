@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase/auth";
+import { auth } from "@/lib/firebase";
 
 export default function RecruiterSignup() {
   const router = useRouter();

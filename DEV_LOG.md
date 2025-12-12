@@ -8,7 +8,7 @@
   - src/app/employer/post-job/page.tsx
   - src/app/employer/dashboard/page.tsx
 - Replaced imports:
-  - "@/lib/firebase/auth" -> "@/lib/firebase"
-  - "@/lib/firebase/db" -> "@/lib/firebase"
+  - "@/lib/firebase" -> "@/lib/firebase"
+  - "@/lib/firebase" -> "@/lib/firebase"
 - Result:
   - Employer can post job and see it in employer dashboard.

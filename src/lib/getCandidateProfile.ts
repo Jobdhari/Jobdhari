@@ -1,4 +1,4 @@
-import { db } from "@/lib/firebase/auth";
+import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
 export async function getCandidateProfile(candidateId: string) {

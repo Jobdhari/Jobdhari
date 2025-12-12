@@ -13,7 +13,7 @@ import {
   setDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { app } from "@/lib/firebase/auth";
+import { app } from "@/lib/firebase";
 import {
   Card,
   CardContent,

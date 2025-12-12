@@ -1,4 +1,4 @@
-import { db } from "@/lib/firebase/auth";
+import { db } from "@/lib/firebase";
 import { doc, updateDoc, setDoc } from "firebase/firestore";
 
 export async function updateResumeUrl(userId: string, url: string | null) {

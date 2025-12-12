@@ -1,5 +1,5 @@
 // src/lib/getCandidateApplications.ts
-import { db } from "@/lib/firebase/auth";
+import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 
 export async function getCandidateApplications(candidateId: string) {

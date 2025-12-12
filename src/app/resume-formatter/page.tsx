@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { db, auth } from "@/lib/firebase/auth";
+import { db, auth } from "@/lib/firebase";
 import {
   collection,
   query,

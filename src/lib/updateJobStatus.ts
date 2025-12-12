@@ -1,4 +1,4 @@
-import { db } from "@/lib/firebase/auth";
+import { db } from "@/lib/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 
 export async function updateJobStatus(jobId: string, newStatus: "Open" | "Closed") {

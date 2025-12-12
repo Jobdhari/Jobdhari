@@ -1,6 +1,6 @@
 // src/lib/firebase/userPreferences.ts
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "./db";
+import { db } import { auth, db } from "@/lib/firebase";;
 
 // 🔴 IMPORTANT:
 // Check in Firestore which collection holds the candidate documents

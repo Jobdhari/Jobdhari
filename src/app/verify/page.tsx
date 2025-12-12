@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, sendEmailVerification } from "firebase/auth";
 import { getFirestore, doc, getDoc, updateDoc } from "firebase/firestore";
-import { app } from "@/lib/firebase/auth";
+import { app } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 
 /**

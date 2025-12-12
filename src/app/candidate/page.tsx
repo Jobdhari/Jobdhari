@@ -2,7 +2,7 @@
 "use client";
 
 import { useAuthState } from "react-firebase-hooks/auth";
-import { auth } from "@/lib/firebase/auth";
+import { auth } from "@/lib/firebase";
 import CandidateProfileForm from "@/components/candidate/CandidateProfileForm";
 import ResumeUploader from "@/components/candidate/ResumeUploader";
 

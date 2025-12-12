@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useEffect, useState } from "react";
-import { db } from "@/lib/firebase/auth";
+import { db } from "@/lib/firebase";
 import { collection, query, where, getCountFromServer } from "firebase/firestore";
 
 export default function RecruiterDashboard() {

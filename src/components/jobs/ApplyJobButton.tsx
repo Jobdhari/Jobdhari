@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth } from "@/lib/firebase/auth";
+import { auth } from "@/lib/firebase";
 import {
   createJobApplication,
   getUserAppliedJobIds,

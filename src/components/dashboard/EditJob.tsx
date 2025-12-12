@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase/auth";
+import { db } from "@/lib/firebase";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";

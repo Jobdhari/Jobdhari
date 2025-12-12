@@ -32,6 +32,6 @@
 - AI matching
 Firebase single source: we will use ONLY one import path everywhere:
 
-import { auth, db, storage } from "@/lib/firebase/auth";
+import { auth, db, storage } from "@/lib/firebase";
 
-No more @/lib/firebase/auth or @/lib/firebase/db unless we intentionally choose that structure. Right now, you have both patterns mixed — that’s what’s breaking you.
+No more @/lib/firebase or @/lib/firebase unless we intentionally choose that structure. Right now, you have both patterns mixed — that’s what’s breaking you.

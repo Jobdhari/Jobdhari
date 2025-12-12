@@ -3,8 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "@/lib/firebase/auth";
-import { db } from "@/lib/firebase/auth";
+import { auth, db } from "@/lib/firebase";
 import {
   collection,
   getDocs,

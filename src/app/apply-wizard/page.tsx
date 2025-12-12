@@ -5,8 +5,7 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuthState } from "react-firebase-hooks/auth";
 
-import { auth } from "@/lib/firebase/auth";
-import { db } from "@/lib/firebase/auth";
+import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 
 import {

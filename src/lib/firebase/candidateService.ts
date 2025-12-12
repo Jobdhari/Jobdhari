@@ -6,7 +6,7 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase/auth";
+import { db } from "@/lib/firebase";
 import type { CandidateProfile } from "@/lib/types/candidate";
 
 // Helper to map Firestore data to our type

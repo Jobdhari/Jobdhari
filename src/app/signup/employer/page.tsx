@@ -14,7 +14,7 @@ import {
   setDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { app } from "@/lib/firebase/auth";
+import { app } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
 
 export default function EmployerSignupPage() {

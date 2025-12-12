@@ -1,4 +1,4 @@
-import { db } from "@/lib/firebase/auth";
+import { db } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
 
 export async function saveCandidateProfile(candidateId: string, data: any) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import RequireAdmin from "@/components/auth/RequireAdmin";
-import { db } from "@/lib/firebase/auth";
+import { db } from "@/lib/firebase";
 import {
   collection,
   getDocs,
