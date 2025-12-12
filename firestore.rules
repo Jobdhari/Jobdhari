@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helpers
+    function authed() {
+      return request.auth != null;
+    }
+
+    // We store role in the auth token: { role: "employer" | "candidate" | "admin" }
+    function hasRole(r) {
+      return authed() && (
+        request.auth.token.role == r ||
+        (request.auth.token.roles != null && r in request.auth.token.roles)  // if you ever use an array
+      );
+    }
+
+    function isEmployer() {
+      return hasRole("employer") || hasRole("admin");
+    }
+
+    // Optional: strictly validate the shape of job docs on CREATE/UPDATE
+    function validJobCreate() {
+      return request.resource.data.keys().hasOnly([
+        "title","company","description","location","workMode","experience",
+        "salary","skills","recruiterId","employerId","status","createdAt",
+        "isPublic","applicationsCount"
+      ])
+      && request.resource.data.title is string
+      && request.resource.data.company is string
+      && request.resource.data.employerId == request.auth.uid
+      && request.resource.data.createdAt is timestamp
+      && request.resource.data.isPublic is bool;
+    }
+
+    function validJobUpdate() {
+      return request.resource.data.keys().hasAny([
+        "title","company","description","location","workMode","experience",
+        "salary","skills","recruiterId","status","isPublic"
+      ]);
+    }
+
+    // Jobs collection
+    match /jobs/{jobId} {
+      // READ: everyone (public feed). If you want only public, use:
+      // allow read: if resource.data.isPublic == true;
+      allow read: if true;
+
+      // WRITE: only employers/admin
+      allow create: if isEmployer() && validJobCreate();
+      allow update: if isEmployer() && validJobUpdate();
+      allow delete: if isEmployer();
+    }
+  }
+}

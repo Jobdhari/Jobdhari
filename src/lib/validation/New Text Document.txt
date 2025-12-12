@@ -1,0 +1,45 @@
+// src/lib/validation/jobSchema.ts
+import { z } from "zod";
+
+export const jobStatusEnum = ["open", "interviewing", "closed"] as const;
+export type JobStatus = (typeof jobStatusEnum)[number];
+
+export const workModeEnum = ["onsite", "hybrid", "remote"] as const;
+export type WorkMode = (typeof workModeEnum)[number];
+
+export const jobFormSchema = z.object({
+  title: z
+    .string()
+    .min(3, "Job title must be at least 3 characters")
+    .max(100, "Job title must be under 100 characters"),
+  company: z
+    .string()
+    .min(2, "Company name is required")
+    .max(100, "Company name is too long"),
+  description: z
+    .string()
+    .min(20, "Description must be at least 20 characters")
+    .max(4000, "Description is too long"),
+  location: z
+    .string()
+    .min(2, "Location is required")
+    .max(100, "Location is too long"),
+  workMode: z.enum(workModeEnum, {
+    errorMap: () => ({ message: "Select work mode" }),
+  }),
+  salary: z
+    .number({
+      required_error: "Salary is required",
+      invalid_type_error: "Salary must be a number",
+    })
+    .min(0, "Salary cannot be negative")
+    .max(1_00_00_000, "Unrealistic salary"),
+  skills: z
+    .string()
+    .min(2, "Add at least one skill (comma separated)")
+    .max(200, "Skills text is too long"),
+  status: z.enum(jobStatusEnum).default("open"),
+  isPublic: z.boolean().default(true),
+});
+
+export type JobFormValues = z.infer<typeof jobFormSchema>;
