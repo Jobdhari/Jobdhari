@@ -1,187 +1,147 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
-import { generateJobDhariId } from "@/lib/services/jobIdService";
+import { getAuth } from "firebase/auth";
+import { createEmployerJob } from "@/lib/firebase/employerJobsService";
 
-type JobFormState = {
-  title: string;
-  companyName: string;
-  location: string;
-  category: string;
-  description: string;
-};
-
-const initialForm: JobFormState = {
-  title: "",
-  companyName: "",
-  location: "",
-  category: "",
-  description: "",
-};
-
-export default function PostJobPage() {
+export default function EmployerPostJobPage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [form, setForm] = useState<JobFormState>(initialForm);
-  const [submitting, setSubmitting] = useState(false);
+  const employerId = getAuth().currentUser?.uid;
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
-      if (!firebaseUser) {
-        router.push("/login/employer");
-        return;
-      }
-      setUser(firebaseUser);
-    });
+  const [title, setTitle] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [location, setLocation] = useState("");
+  const [category, setCategory] = useState("");
+  const [description, setDescription] = useState("");
 
-    return () => unsub();
-  }, [router]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
+  if (!employerId) {
+    return (
+      <div className="p-8">
+        <h1 className="text-2xl font-semibold">Post a New Job</h1>
+        <p className="mt-2 text-gray-600">Please login as employer to post a job.</p>
+      </div>
+    );
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
 
-    if (!user) {
-      router.push("/login/employer");
-      return;
-    }
+    if (!title.trim()) return setError("Job Title is required.");
 
-    if (!form.title.trim()) {
-      alert("Job title is required");
-      return;
-    }
-
+    setSaving(true);
     try {
-      setSubmitting(true);
-
-      const jobDhariId = await generateJobDhariId();
-
-      await addDoc(collection(db, "jobs"), {
-        jobDhariId,
-        title: form.title.trim(),
-        companyName: form.companyName.trim() || "Company not specified",
-        location: form.location.trim() || "Location not specified",
-        category: form.category.trim() || "Others",
-        description: form.description.trim(),
-
-        // link to employer
-        postedByUid: user.uid,
-        postedByRole: "employer",
-
-        isPublished: true,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+      await createEmployerJob({
+        employerId,
+        title: title.trim(),
+        companyName: companyName.trim(),
+        location: location.trim(),
+        category: category.trim(),
+        description: description.trim(),
+        status: "active",
       });
 
       router.push("/employer/dashboard");
     } catch (err) {
-      console.error("Error posting job", err);
-      alert("Could not post job. Please try again.");
+      console.error(err);
+      setError("Failed to post job. Please try again.");
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
-  };
+  }
 
   return (
-    <main className="flex-1 px-4 py-8 md:px-12">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-semibold mb-2">Post a New Job</h1>
-        <p className="text-gray-600 mb-6">
+    <div className="p-8">
+      <div className="max-w-3xl">
+        <h1 className="text-4xl font-bold">Post a New Job</h1>
+        <p className="mt-2 text-gray-600">
           Create a job opening that will appear to candidates on JobDhari.
         </p>
 
         <form
-          onSubmit={handleSubmit}
-          className="space-y-4 bg-white border border-gray-200 rounded-xl p-6"
+          onSubmit={onSubmit}
+          className="mt-8 rounded-2xl border bg-white p-6 space-y-5"
         >
+          {error ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : null}
+
           <div>
-            <label className="block text-sm font-medium mb-1">Job Title *</label>
+            <label className="font-semibold">Job Title *</label>
             <input
-              name="title"
-              value={form.title}
-              onChange={handleChange}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
+              className="mt-2 w-full rounded-md border px-3 py-2"
               placeholder="e.g. Senior IT Recruiter"
-              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Company Name</label>
+            <label className="font-semibold">Company Name</label>
             <input
-              name="companyName"
-              value={form.companyName}
-              onChange={handleChange}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
+              className="mt-2 w-full rounded-md border px-3 py-2"
               placeholder="e.g. ABC Staffing Pvt Ltd"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Location</label>
+            <label className="font-semibold">Location</label>
             <input
-              name="location"
-              value={form.location}
-              onChange={handleChange}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
+              className="mt-2 w-full rounded-md border px-3 py-2"
               placeholder="e.g. Hyderabad, Telangana"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Category / Function
-            </label>
+            <label className="font-semibold">Category / Function</label>
             <input
-              name="category"
-              value={form.category}
-              onChange={handleChange}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
+              className="mt-2 w-full rounded-md border px-3 py-2"
               placeholder="e.g. Recruitment, Sales, BPO"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Job Description
-            </label>
+            <label className="font-semibold">Job Description</label>
             <textarea
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              className="w-full border rounded-lg px-3 py-2 text-sm min-h-[120px]"
+              className="mt-2 w-full rounded-md border px-3 py-2 min-h-[140px]"
               placeholder="Short description, key requirements, etc."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
+              className="rounded-lg border px-5 py-2"
               onClick={() => router.push("/employer/dashboard")}
-              className="px-4 py-2 text-sm rounded-lg border border-gray-300 bg-white"
+              disabled={saving}
             >
               Cancel
             </button>
+
             <button
               type="submit"
-              disabled={submitting}
-              className="px-4 py-2 text-sm rounded-lg bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-60"
+              className="rounded-lg bg-orange-500 px-5 py-2 font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
+              disabled={saving}
             >
-              {submitting ? "Posting..." : "Post Job"}
+              {saving ? "Posting..." : "Post Job"}
             </button>
           </div>
         </form>
       </div>
-    </main>
+    </div>
   );
 }

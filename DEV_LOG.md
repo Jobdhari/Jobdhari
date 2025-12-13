@@ -12,3 +12,23 @@
   - "@/lib/firebase" -> "@/lib/firebase"
 - Result:
   - Employer can post job and see it in employer dashboard.
+## Checkpoint: Firebase + Dashboard/Roles (WIP)
+
+### Goal
+Unify Firebase imports and stop role/dashboard confusion.
+
+### Current Firebase source of truth
+- src/lib/firebase.ts exports: auth, db, storage, app
+
+### Known broken/cleanup items to finish next
+- Remove old imports like "@/lib/firebase/auth" and "@/lib/firebase/db"
+- Fix any remaining imports pointing to "@/lib/firebase/applicationService.ts" using "./db" etc
+- Make /dashboard role-aware redirect:
+  - candidate -> /candidate/home
+  - employer -> /employer/dashboard
+- Sidebar should be role-aware (no mixed menus)
+
+### Next session plan
+1) Fix remaining build errors (import paths)
+2) Implement /dashboard redirect by role
+3) Separate Candidate Home and Employer Dashboard UX

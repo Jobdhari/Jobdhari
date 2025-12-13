@@ -1,16 +1,10 @@
 // src/app/employer/layout.tsx
-"use client";
-
-import type { ReactNode } from "react";
+import AppShell from "@/components/layout/AppShell";
 
 export default function EmployerLayout({
   children,
 }: {
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
-  // ⚠️ TEMP: no auth / role checks here.
-  // Later we will add "only employer" protection back
-  // once WhatsApp login + roles are fully wired.
-
-  return <>{children}</>;
+  return <AppShell>{children}</AppShell>;
 }

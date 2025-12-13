@@ -1,64 +1,49 @@
-"use client";
+// src/app/page.tsx
+import Link from "next/link";
 
-import React from "react";
-import { useRouter } from "next/navigation";
-
-const HomePage: React.FC = () => {
-  const router = useRouter();
-
-  // Candidate: always go to jobs list
-  const handleSearchJobs = () => {
-    router.push("/jobs");
-  };
-
-  // Employer: go directly to employer dashboard
-  const handleEmployerSignup = () => {
-    router.push("/employer/dashboard");
-  };
-
+export default function HomePage() {
   return (
-    <main className="flex-1 flex items-center justify-center px-4 py-8 md:px-12">
-      <div className="w-full max-w-4xl flex flex-col md:flex-row items-center gap-8">
-        {/* Left text section */}
-        <div className="flex-1">
-          <h1 className="text-3xl md:text-4xl font-bold mb-4">
-            Find Your Next
-            <br />
-            Opportunity
-          </h1>
-          <p className="text-gray-600 text-sm md:text-base mb-6 max-w-xl">
-            Explore thousands of job openings carefully curated to match your
-            growth path. Your career deserves the right direction.
-          </p>
+    <main className="min-h-[calc(100vh-64px)]">
+      <div className="mx-auto max-w-6xl px-6 py-14">
+        <div className="grid gap-10 md:grid-cols-2 md:items-center">
+          {/* Left */}
+          <div>
+            <h1 className="text-4xl md:text-5xl font-extrabold leading-tight">
+              Find Your Next
+              <br />
+              Opportunity
+            </h1>
 
-          <div className="flex flex-col sm:flex-row gap-3">
-            {/* Candidate button */}
-            <button
-              onClick={handleSearchJobs}
-              className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium bg-orange-500 text-white hover:bg-orange-600"
-            >
-              Search Jobs
-            </button>
+            <p className="mt-4 max-w-xl text-gray-600">
+              Explore thousands of job openings carefully curated to match your
+              growth path. Your career deserves the right direction.
+            </p>
 
-            {/* Employer button */}
-            <button
-              onClick={handleEmployerSignup}
-              className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium border border-gray-300 text-gray-800 bg-white hover:bg-gray-50"
-            >
-              I&apos;m Hiring / Post a Job
-            </button>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                href="/jobs"
+                className="inline-flex items-center justify-center rounded-lg bg-orange-500 px-6 py-3 text-sm font-semibold text-white hover:bg-orange-600"
+              >
+                Search Jobs
+              </Link>
+
+              <Link
+                href="/login/employer"
+                className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-50"
+              >
+                I&apos;m Hiring / Post a Job
+              </Link>
+            </div>
           </div>
-        </div>
 
-        {/* Right image placeholder – optional */}
-        <div className="hidden md:flex flex-1 items-center justify-center">
-          <div className="w-full h-48 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 text-sm">
-            JobDhari Hero
+          {/* Right */}
+          <div className="flex justify-center md:justify-end">
+            <div className="h-72 w-full max-w-xl rounded-[999px] border bg-gray-50 flex items-center justify-center text-gray-400">
+              JobDhari Hero
+            </div>
           </div>
         </div>
       </div>
     </main>
   );
-};
-
-export default HomePage;
+}
