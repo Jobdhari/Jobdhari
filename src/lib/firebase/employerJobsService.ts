@@ -1,75 +1,106 @@
 // src/lib/firebase/employerJobsService.ts
+
+import { db } from "@/lib/firebase";
 import {
-  addDoc,
   collection,
   getDocs,
-  orderBy,
   query,
-  serverTimestamp,
   where,
-  Timestamp,
-  DocumentData,
+  orderBy,
+  serverTimestamp,
+  addDoc,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { generateJobDhariId } from "@/lib/services/jobIdService";
 
-export type JobStatus = "active" | "closed" | "draft";
+export type JobStatus = "open" | "closed" | "draft";
 
-export type EmployerJob = {
+export interface EmployerJob {
   id: string;
-  employerId: string;
-
+  jobDhariId: string;
   title: string;
   companyName: string;
   location: string;
   category: string;
-  description: string;
-
-  status: JobStatus;
-  createdAt?: Timestamp;
-};
-
-export type CreateEmployerJobInput = Omit<
-  EmployerJob,
-  "id" | "createdAt"
->;
-
-function mapJob(docData: DocumentData, id: string): EmployerJob {
-  return {
-    id,
-    employerId: docData.employerId,
-    title: docData.title ?? "",
-    companyName: docData.companyName ?? "",
-    location: docData.location ?? "",
-    category: docData.category ?? "",
-    description: docData.description ?? "",
-    status: (docData.status ?? "draft") as JobStatus,
-    createdAt: docData.createdAt,
-  };
+  status: JobStatus | string;
+  isPublished: boolean;
+  createdByUid: string;
+  postedByUid: string;
+  createdAt?: any;
+  updatedAt?: any;
 }
 
-export async function createEmployerJob(input: CreateEmployerJobInput) {
-  const ref = await addDoc(collection(db, "jobs"), {
-    ...input,
-    createdAt: serverTimestamp(),
-  });
-  return ref.id;
-}
-
+/**
+ * ✅ Employer dashboard job list
+ * Owner-only fetch (rules-compliant)
+ */
 export async function listEmployerJobs(params: {
   employerId: string;
-  status?: JobStatus; // keep single-status filter for now (simpler + fewer indexes)
 }) {
-  const { employerId, status } = params;
+  const { employerId } = params;
+  if (!employerId) return [];
 
-  const base = [
-    where("employerId", "==", employerId),
-    orderBy("createdAt", "desc"),
-  ] as const;
-
-  const q = status
-    ? query(collection(db, "jobs"), ...base, where("status", "==", status))
-    : query(collection(db, "jobs"), ...base);
+  const q = query(
+    collection(db, "jobs"),
+    where("postedByUid", "==", employerId),
+    orderBy("updatedAt", "desc")
+  );
 
   const snap = await getDocs(q);
-  return snap.docs.map((d) => mapJob(d.data(), d.id));
+
+  return snap.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      jobDhariId: data.jobDhariId,
+      title: data.title,
+      companyName: data.companyName,
+      location: data.location,
+      category: data.category,
+      status: data.status,
+      isPublished: data.isPublished,
+      createdByUid: data.createdByUid,
+      postedByUid: data.postedByUid,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+    } as EmployerJob;
+  });
+}
+
+/**
+ * ✅ RULES-COMPLIANT JOB CREATION
+ * This FIXES your posting error
+ */
+export async function createEmployerJob(input: {
+  title: string;
+  companyName: string;
+  location: string;
+  category: string;
+  employerId: string;
+}) {
+  if (!input.employerId) {
+    throw new Error("Missing employerId");
+  }
+
+  const jobDhariId = await generateJobDhariId();
+
+  const ref = await addDoc(collection(db, "jobs"), {
+    jobDhariId,
+
+    title: input.title.trim(),
+    companyName: input.companyName.trim(),
+    location: input.location.trim(),
+    category: input.category.trim(),
+
+    // 🔒 REQUIRED BY RULES
+    status: "draft",
+    isPublished: false,
+
+    createdByUid: input.employerId,
+    postedByUid: input.employerId,
+
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  return ref.id;
 }

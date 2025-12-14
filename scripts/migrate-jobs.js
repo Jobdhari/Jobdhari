@@ -1,96 +1,56 @@
-/**
- * ONE-TIME FIRESTORE MIGRATION SCRIPT FOR JOBDHARI
- *
- * Adds missing fields to all jobs without overwriting existing values.
- * Safe to run. After running once, delete this file.
- */
+/* scripts/migratejobs.js */
 
-import { initializeApp } from "firebase/app";
-import {
-  getFirestore,
-  collection,
-  getDocs,
-  doc,
-  updateDoc,
-  serverTimestamp,
-} from "firebase/firestore";
+const admin = require("firebase-admin");
+const path = require("path");
 
-// TODO: Replace with your firebase config
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
+// Load service account
+const serviceAccount = require(path.join(
+  __dirname,
+  "..",
+  "serviceAccountKey.json"
+));
 
-// init
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// Initialize Admin SDK
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 
-// FINAL SCHEMA DEFAULTS
-const DEFAULTS = {
-  topSkills: [],
-  domainSkills: [],
-  mustHaveExperience: [],
-  experienceMin: 0,
-  experienceMax: 0,
-  salaryMin: 0,
-  salaryMax: 0,
-  jobType: "full-time",
-  workMode: "onsite",
-  pinCode: "",
-  city: "",
-  views: 0,
-  applicationsCount: 0,
-  status: "Open",
-};
+const db = admin.firestore();
 
 async function migrateJobs() {
-  console.log("🚀 Starting job migration...");
+  const snap = await db.collection("jobs").get();
 
-  const jobsSnap = await getDocs(collection(db, "jobs"));
-  console.log(`Found ${jobsSnap.size} job documents.`);
+  console.log(`Found ${snap.size} job(s)`);
 
-  for (const jobDoc of jobsSnap.docs) {
-    const data = jobDoc.data();
-    const updates = {};
+  for (const doc of snap.docs) {
+    const data = doc.data();
 
-    // Only add fields that are missing
-    Object.entries(DEFAULTS).forEach(([field, defaultValue]) => {
-      if (data[field] === undefined) {
-        updates[field] = defaultValue;
-      }
-    });
+    const ownerUid =
+      data.createdByUid ||
+      data.postedByUid ||
+      data.employerUid ||
+      "REPLACE_WITH_REAL_UID";
 
-    // Set updatedAt if missing
-    if (!data.updatedAt) {
-      updates.updatedAt = serverTimestamp();
-    }
+    const normalizedStatus =
+      data.status === "closed" || data.status === "draft"
+        ? data.status
+        : "open";
 
-    // If no description, make an empty description
-    if (data.description === undefined) {
-      updates.description = "";
-    }
+    const updatePayload = {
+      createdByUid: ownerUid,
+      postedByUid: ownerUid,
+      status: normalizedStatus,
+      isPublished: normalizedStatus === "open",
+      createdAt: data.createdAt || admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
 
-    // If no companyName, fall back to hiringFor or "Company"
-    if (!data.companyName) {
-      updates.companyName = data.hiringFor || "Company";
-    }
+    await doc.ref.set(updatePayload, { merge: true });
 
-    // If nothing to update, skip
-    if (Object.keys(updates).length === 0) {
-      console.log(`✔ Job ${jobDoc.id} already up to date`);
-      continue;
-    }
-
-    // Otherwise update
-    await updateDoc(doc(db, "jobs", jobDoc.id), updates);
-    console.log(`🔧 Updated job ${jobDoc.id}:`, updates);
+    console.log(`✔ Migrated job ${doc.id}`);
   }
 
-  console.log("🎉 Migration complete!");
+  console.log("✅ Job migration complete");
 }
 
-migrateJobs().catch((err) => console.error("Migration failed", err));
+migrateJobs().catch(console.error);

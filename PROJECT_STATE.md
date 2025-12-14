@@ -35,3 +35,94 @@ Firebase single source: we will use ONLY one import path everywhere:
 import { auth, db, storage } from "@/lib/firebase";
 
 No more @/lib/firebase or @/lib/firebase unless we intentionally choose that structure. Right now, you have both patterns mixed — that’s what’s breaking you.
+Add/confirm sections:
+
+Roles: Candidate, Employer, Recruiter, Admin (what’s in/out of MVP)
+
+Employer MVP features complete so far: Post job, jobs list, dashboard skeleton
+
+Candidate MVP not complete yet (keep as “planned”)
+
+Non-goals: Naukri-like Resdex / advanced search / heavy ATS features are out of MVP
+# JobDhari — Product Overview
+
+## What is JobDhari?
+JobDhari is a mobile-first, bilingual, hyperlocal job platform focused on India’s Tier-2 and Tier-3 cities.
+
+It connects:
+- Candidates (job seekers)
+- Employers (companies)
+- Recruiters (consultants working for multiple companies)
+
+The product emphasizes:
+- Simple flows
+- Local hiring
+- WhatsApp-style usability
+- Fast job posting and application
+
+---
+
+## User Roles
+
+### Candidate
+- Browse jobs
+- Apply to jobs
+- View applied jobs
+- Maintain basic profile
+
+### Employer (MVP Focus)
+- Post jobs
+- View posted jobs
+- View job responses
+- Manage job status (open / closed)
+
+### Recruiter
+- Similar to employer but may manage jobs for multiple companies
+- Partial implementation (not finalized)
+
+### Admin
+- Platform overview
+- Job moderation (future)
+
+---
+
+## MVP Scope (Current)
+
+### Employer MVP — IN PROGRESS
+- Employer login
+- Employer dashboard (Jobs & Responses)
+- Post a job
+- View own jobs
+- Firestore-backed job storage
+
+### Candidate MVP — PLANNED
+- Candidate login
+- Candidate profile creation
+- Browse jobs
+- Apply to jobs
+- My Applications page
+
+### Explicitly OUT of MVP
+- Resume database (Resdex-style)
+- Advanced AI matching
+- Paid plans & billing
+- Chat / messaging
+- Heavy ATS workflows
+
+---
+
+## Design Principles
+- Inspired by platforms like Naukri for structure only
+- No design or code copied
+- Simple, clean, scalable UI
+## SPRINT 1 — Stabilization (NOW)
+
+- [x] Fix duplicate Filters sidebar on Employer Dashboard
+- [x] Align job status filters with backend schema ("open", "closed", "draft")
+- [x] Fix dashboard layout spacing issues
+- [ ] Ensure no UI duplication across employer pages
+- [x] Persist Employer Dashboard filters in URL (status + search)
+- [x] Fix dashboard status filters/counts when legacy job statuses exist (normalize active/approved → open)
+- [x] Employer can edit a job (basic fields) from dashboard
+- [x] Show real application counts per job on Employer Dashboard
+- [x] Add MVP Firestore security rules for jobs + applications (owner-only writes, safe public reads)

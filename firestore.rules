@@ -1,55 +1,106 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helpers
-    function authed() {
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    // We store role in the auth token: { role: "employer" | "candidate" | "admin" }
-    function hasRole(r) {
-      return authed() && (
-        request.auth.token.role == r ||
-        (request.auth.token.roles != null && r in request.auth.token.roles)  // if you ever use an array
-      );
+    function uid() {
+      return request.auth.uid;
     }
 
-    function isEmployer() {
-      return hasRole("employer") || hasRole("admin");
+    match /users/{userId} {
+      allow read: if isSignedIn() && uid() == userId;
+      allow create: if isSignedIn() && uid() == userId;
+      allow update: if isSignedIn() && uid() == userId;
+      allow delete: if false;
     }
 
-    // Optional: strictly validate the shape of job docs on CREATE/UPDATE
-    function validJobCreate() {
-      return request.resource.data.keys().hasOnly([
-        "title","company","description","location","workMode","experience",
-        "salary","skills","recruiterId","employerId","status","createdAt",
-        "isPublic","applicationsCount"
-      ])
-      && request.resource.data.title is string
-      && request.resource.data.company is string
-      && request.resource.data.employerId == request.auth.uid
-      && request.resource.data.createdAt is timestamp
-      && request.resource.data.isPublic is bool;
-    }
-
-    function validJobUpdate() {
-      return request.resource.data.keys().hasAny([
-        "title","company","description","location","workMode","experience",
-        "salary","skills","recruiterId","status","isPublic"
-      ]);
-    }
-
-    // Jobs collection
     match /jobs/{jobId} {
-      // READ: everyone (public feed). If you want only public, use:
-      // allow read: if resource.data.isPublic == true;
-      allow read: if true;
 
-      // WRITE: only employers/admin
-      allow create: if isEmployer() && validJobCreate();
-      allow update: if isEmployer() && validJobUpdate();
-      allow delete: if isEmployer();
+      function isOwner() {
+        return isSignedIn() && (
+          resource.data.createdByUid == uid() ||
+          resource.data.postedByUid == uid()
+        );
+      }
+
+      function isOwnerOnCreate() {
+        return isSignedIn() && (
+          request.resource.data.createdByUid == uid() ||
+          request.resource.data.postedByUid == uid()
+        );
+      }
+
+      allow get, list: if (
+        (resource.data.isPublished == true && resource.data.status == "open")
+        || isOwner()
+      );
+
+      allow create: if isOwnerOnCreate()
+        && request.resource.data.status in ["open", "closed", "draft"]
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if isOwner()
+        && request.resource.data.createdByUid == resource.data.createdByUid
+        && request.resource.data.postedByUid == resource.data.postedByUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "title",
+          "companyName",
+          "location",
+          "pincode",
+          "category",
+          "description",
+          "status",
+          "isPublished",
+          "updatedAt"
+        ])
+        && request.resource.data.status in ["open", "closed", "draft"];
+
+      allow delete: if false;
+    }
+
+    match /applications/{appId} {
+
+      function jobDoc() {
+        return get(/databases/$(database)/documents/jobs/$(resource.data.jobId));
+      }
+
+      function jobDocOnCreate() {
+        return get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId));
+      }
+
+      function jobOwnedByRequester(job) {
+        return isSignedIn() && (
+          job.data.createdByUid == uid() ||
+          job.data.postedByUid == uid()
+        );
+      }
+
+      allow create: if isSignedIn()
+        && request.resource.data.userId == uid()
+        && request.resource.data.jobId is string
+        && request.resource.data.status is string
+        && request.resource.data.appliedAt == request.time
+        && jobDocOnCreate().data.isPublished == true
+        && jobDocOnCreate().data.status == "open";
+
+      allow get, list: if isSignedIn() && (
+        resource.data.userId == uid()
+        || jobOwnedByRequester(jobDoc())
+      );
+
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /counters/{docId} {
+      allow read, write: if false;
     }
   }
 }

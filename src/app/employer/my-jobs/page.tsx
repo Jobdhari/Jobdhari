@@ -1,212 +1,192 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
 import {
   collection,
+  getDocs,
+  orderBy,
   query,
   where,
-  orderBy,
-  getDocs,
   Timestamp,
+  DocumentData,
 } from "firebase/firestore";
+import { auth } from "@/lib/firebase/auth";
+import { db } from "@/lib/firebase";
 
 type EmployerJob = {
   id: string;
-  jobDhariId?: string;
   title: string;
-  companyName?: string;
-  location?: string;
-  pincode?: string;
-  status?: string;
-  createdAt?: Timestamp | null;
+  companyName: string;
+  location: string;
+  status: string;
+  createdAt: Date | null;
 };
 
-const EmployerMyJobsPage: React.FC = () => {
-  const router = useRouter();
+function toDateSafe(v: any): Date | null {
+  if (!v) return null;
+  if (v instanceof Timestamp) return v.toDate();
+  // sometimes serverTimestamp comes back as plain object in some states
+  try {
+    if (typeof v?.toDate === "function") return v.toDate();
+  } catch {}
+  return null;
+}
+
+export default function EmployerMyJobsPage() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
   const [jobs, setJobs] = useState<EmployerJob[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingJobs, setLoadingJobs] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 1) Auth
   useEffect(() => {
-    const fetchJobs = async () => {
-      setError(null);
-      setLoading(true);
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setLoadingAuth(false);
+    });
+    return () => unsub();
+  }, []);
 
-      const user = auth.currentUser;
-      if (!user) {
-        setError("You must be logged in as an employer to view your jobs.");
-        setLoading(false);
-        return;
-      }
+  // 2) Load jobs (supports BOTH createdByUid + postedByUid)
+  useEffect(() => {
+    const load = async () => {
+      if (!user?.uid) return;
+
+      setLoadingJobs(true);
+      setError(null);
 
       try {
         const jobsRef = collection(db, "jobs");
 
-        // Only jobs created by this user
-        const q = query(
+        // Query A: jobs created with createdByUid
+        const qCreated = query(
           jobsRef,
           where("createdByUid", "==", user.uid),
           orderBy("createdAt", "desc")
         );
 
-        const snap = await getDocs(q);
-        const list: EmployerJob[] = [];
+        // Query B: jobs created with postedByUid
+        const qPosted = query(
+          jobsRef,
+          where("postedByUid", "==", user.uid),
+          orderBy("createdAt", "desc")
+        );
 
-        snap.forEach((docSnap) => {
-          const data = docSnap.data() as any;
-          list.push({
-            id: docSnap.id,
-            jobDhariId: data.jobDhariId,
-            title: data.title ?? "Untitled Job",
-            companyName: data.companyName ?? "",
-            location: data.location ?? "",
-            pincode: data.pincode ?? "",
-            status: data.status ?? "open",
-            createdAt: data.createdAt ?? null,
+        const [snapCreated, snapPosted] = await Promise.all([
+          getDocs(qCreated),
+          getDocs(qPosted),
+        ]);
+
+        // Merge + de-dupe by doc id
+        const byId = new Map<string, EmployerJob>();
+
+        const addFromSnap = (snap: any) => {
+          snap.docs.forEach((d: any) => {
+            const data = d.data() as DocumentData;
+
+            byId.set(d.id, {
+              id: d.id,
+              title: data.title ?? "Untitled job",
+              companyName: data.companyName ?? "Company not specified",
+              location: data.location ?? data.city ?? "",
+              status: data.status ?? "open",
+              createdAt: toDateSafe(data.createdAt),
+            });
           });
+        };
+
+        addFromSnap(snapCreated);
+        addFromSnap(snapPosted);
+
+        // Sort newest first
+        const merged = Array.from(byId.values()).sort((a, b) => {
+          const at = a.createdAt?.getTime() ?? 0;
+          const bt = b.createdAt?.getTime() ?? 0;
+          return bt - at;
         });
 
-        setJobs(list);
-      } catch (err: any) {
-        console.error("Error loading employer jobs:", err);
-        setError(err?.message || "Failed to load your jobs.");
+        setJobs(merged);
+      } catch (e: any) {
+        console.error(e);
+        setError(e?.message ?? "Failed to load jobs");
       } finally {
-        setLoading(false);
+        setLoadingJobs(false);
       }
     };
 
-    fetchJobs();
-  }, []);
+    load();
+  }, [user?.uid]);
 
-  const handlePostJob = () => {
-    router.push("/employer/post-job");
-  };
-
-  const formatDate = (ts?: Timestamp | null) => {
-    if (!ts) return "";
-    const d = ts.toDate();
-    return d.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  if (loading) {
+  // UI states
+  if (loadingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-sm text-gray-600">Loading your jobs...</p>
-      </div>
+      <main className="p-6">
+        <p className="text-sm text-gray-500">Checking login…</p>
+      </main>
     );
   }
 
-  const user = auth.currentUser;
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <h1 className="text-xl font-semibold mb-2">Login required</h1>
-          <p className="text-gray-600 text-sm mb-4">
-            Please log in as an employer to view your posted jobs.
+      <main className="p-6">
+        <div className="max-w-md rounded-xl border bg-white p-5">
+          <h1 className="text-lg font-semibold">Login required</h1>
+          <p className="mt-1 text-sm text-gray-600">
+            Please login to view your jobs.
           </p>
-          <button
-            onClick={() => router.push("/signup?role=employer")}
-            className="w-full inline-flex items-center justify-center rounded-lg border border-transparent px-4 py-2 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"
+          <a
+            href="/login/employer"
+            className="mt-4 inline-flex rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600"
           >
-            Go to Employer Signup
-          </button>
+            Go to Employer Login
+          </a>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex justify-center px-4 py-8">
-      <div className="w-full max-w-3xl bg-white border border-gray-200 shadow-sm rounded-2xl p-6 md:p-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-semibold">My Jobs</h1>
-            <p className="text-sm text-gray-600">
-              Jobs you have posted on JobDhari.
-            </p>
-          </div>
-          <button
-            onClick={handlePostJob}
-            className="inline-flex items-center justify-center rounded-lg border border-transparent px-4 py-2 text-sm font-medium bg-orange-500 text-white hover:bg-orange-600"
-          >
-            + Post New Job
-          </button>
-        </div>
+    <main className="p-6 md:p-10">
+      <h1 className="text-2xl font-bold">My Jobs</h1>
+      <p className="mt-1 text-sm text-gray-600">
+        Showing jobs created by you (supports older + newer job records).
+      </p>
 
-        {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        {jobs.length === 0 ? (
-          <div className="mt-4 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center">
-            <p className="text-sm text-gray-700 mb-2">
-              You haven&apos;t posted any jobs yet.
-            </p>
-            <button
-              onClick={handlePostJob}
-              className="inline-flex items-center justify-center rounded-lg border border-transparent px-4 py-2 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"
-            >
-              Post your first job
-            </button>
-          </div>
+      <section className="mt-6 rounded-2xl border bg-white p-5">
+        {loadingJobs ? (
+          <p className="text-sm text-gray-500">Loading jobs…</p>
+        ) : error ? (
+          <p className="text-sm text-red-600">{error}</p>
+        ) : jobs.length === 0 ? (
+          <p className="text-sm text-gray-600">
+            No jobs found for your account.
+          </p>
         ) : (
-          <div className="mt-4 space-y-3">
+          <div className="space-y-3">
             {jobs.map((job) => (
               <div
                 key={job.id}
-                className="rounded-xl border border-gray-200 px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+                className="rounded-xl border px-4 py-3 flex items-center justify-between gap-4"
               >
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold text-gray-900">
-                      {job.title}
-                    </h2>
-                    {job.jobDhariId && (
-                      <span className="inline-flex items-center rounded-full border border-gray-200 px-2 py-0.5 text-[10px] uppercase tracking-wide text-gray-600 bg-gray-50">
-                        {job.jobDhariId}
-                      </span>
-                    )}
+                  <div className="font-medium">{job.title}</div>
+                  <div className="text-xs text-gray-600">
+                    {job.companyName}
+                    {job.location ? ` · ${job.location}` : ""}
+                    {job.createdAt ? ` · ${job.createdAt.toLocaleString()}` : ""}
                   </div>
-                  <p className="text-xs text-gray-600">
-                    {job.companyName || "Company not specified"}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {job.location}
-                    {job.pincode ? ` • ${job.pincode}` : ""}
-                  </p>
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    Posted on {formatDate(job.createdAt)}
-                  </p>
                 </div>
-
-                <div className="flex flex-col items-stretch gap-2 md:items-end">
-                  <span className="inline-flex rounded-full bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide self-start md:self-end">
-                    {job.status || "open"}
-                  </span>
-                  <button
-                    onClick={() => router.push(`/employer/jobs/${job.id}`)}
-                    className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-800 hover:bg-gray-50"
-                  >
-                    View applicants
-                  </button>
-                </div>
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">
+                  {job.status}
+                </span>
               </div>
             ))}
           </div>
         )}
-      </div>
-    </div>
+      </section>
+    </main>
   );
-};
-
-export default EmployerMyJobsPage;
+}
