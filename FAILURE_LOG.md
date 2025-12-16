@@ -317,3 +317,30 @@ What NOT to try again (summary list)
 ❌ Mix old + new status values
 
 This is the complete failure log.
+## F-2025-012 — Job posting wrote legacy fields
+
+### What failed
+Employer could not post jobs reliably.
+
+### Root cause
+Post Job flow was still writing:
+- employerId
+- status: "active"
+
+These fields are no longer used by dashboard queries or filters.
+
+### Lesson
+Never allow legacy fields in new writes. New data must always be canonical.
+## F-2025-013 — Assumed legacy jobs needed migration (but data was already compliant)
+
+### What we assumed
+Legacy job docs were the main reason employer jobs were missing / posting failed.
+
+### What we found
+Admin SDK dry-run scanned 11 job docs and found:
+- 11/11 already compliant
+- 0 changes required
+- 0 failures
+
+### Lesson
+Validate data with a dry-run script before committing to migration. Missing jobs can be caused by Auth/Rules/config, not necessarily data shape.

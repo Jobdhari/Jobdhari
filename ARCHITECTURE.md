@@ -278,3 +278,8 @@ Route: `/employer/jobs/[id]/edit`
 - Create: signed-in candidate can apply only to published/open jobs; `appliedAt == request.time`
 - Read: candidate can read own; employer/recruiter can read applications for jobs they own
 - Update/Delete: disabled in MVP
+### Local development (MVP)
+Use Firebase Emulator Suite (Firestore) to test security rules safely before publishing to production.
+## Data maintenance
+- Admin SDK dry-run migration script exists for `jobs` normalization verification.
+- Current `jobs` docs (sample size 11) already conform to canonical schema.

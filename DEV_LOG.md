@@ -280,3 +280,55 @@ Implemented MVP Firestore security rules to protect production data:
 
 ### Notes
 Rules enforce canonical job statuses: "open" | "closed" | "draft".
+## 2025-12-16 00:10 (IST) — Git reset to last stable employer MVP
+
+### Context
+Local changes caused application breakage during ongoing development.
+
+### Action
+Reset working directory to last known stable commit:
+- Employer dashboard MVP (filters, job actions, edit job, response counts, Firestore rules)
+
+### Commit restored
+- 029e89b
+
+### Notes
+All subsequent development will follow small-change + immediate-commit workflow.
+## 2025-12-16 00:40 (IST) — Setup: Firestore Rules testing via Firebase Emulator
+
+### Change
+Started validating Firestore security rules using Firebase Emulator Suite to avoid breaking production rules during iteration.
+
+### Notes
+- Firestore Emulator runs locally (default 8080) with Emulator UI (default 4000).
+- App can be configured to connect to emulator in development mode.
+## 2025-12-16 02:05 (IST) — Fixed employer job posting (canonical write)
+
+### Change
+Fixed Post Job submit handler to write only canonical fields.
+
+### Details
+- Removed legacy `employerId`
+- Replaced status `"active"` with `"open"`
+- Always write:
+  - createdByUid
+  - postedByUid
+  - isPublished = true
+
+### Impact
+- New jobs reliably appear on employer dashboard
+- Filters and counts work correctly
+## 2025-12-16 03:30 (IST) — Jobs migration dry-run validated (no changes needed)
+
+### Action
+Ran Admin SDK dry-run migration script against `jobs` collection.
+
+### Result
+- Scanned: 11 jobs
+- Already compliant: 11
+- Would change: 0
+- Failures: 0
+- CAN_PROCEED = true
+
+### Conclusion
+No legacy normalization required for current jobs dataset. Remaining issues are likely Auth/Rules/config, not job document schema.
