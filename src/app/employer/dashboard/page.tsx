@@ -8,12 +8,8 @@ import {
   useSearchParams,
 } from "next/navigation";
 import { getAuth } from "firebase/auth";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+
+import EmployerGate from "@/components/auth/EmployerGate";
 
 import { db } from "@/lib/firebase";
 import {
@@ -21,6 +17,7 @@ import {
   listEmployerJobs,
 } from "@/lib/firebase/employerJobsService";
 import { updateJobStatus } from "@/lib/updateJobStatus";
+import { getApplicationCountsByJobIds } from "@/lib/firebase/getApplicationCountsByJobIds";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -155,7 +152,6 @@ export default function EmployerDashboardPage() {
 
     setStatus((prev) => (prev === safeStatus ? prev : safeStatus));
     setSearch((prev) => (prev === urlQ ? prev : urlQ));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   /* ---------- State → URL ---------- */
@@ -172,33 +168,9 @@ export default function EmployerDashboardPage() {
     router.replace(
       params.toString() ? `${pathname}?${params}` : pathname
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, search, pathname]);
 
-  /* ---------- Fetch response counts ---------- */
-  const fetchResponseCounts = async (jobIds: string[]) => {
-    if (jobIds.length === 0) {
-      setResponseCounts({});
-      return;
-    }
-
-    const q = query(
-      collection(db, "applications"),
-      where("jobId", "in", jobIds.slice(0, 10))
-    );
-
-    const snap = await getDocs(q);
-
-    const counts: Record<string, number> = {};
-    for (const d of snap.docs) {
-      const jobId = d.data().jobId;
-      counts[jobId] = (counts[jobId] || 0) + 1;
-    }
-
-    setResponseCounts(counts);
-  };
-
-  /* ---------- Fetch jobs (REPLACED AS REQUESTED) ---------- */
+  /* ---------- Fetch jobs ---------- */
   const fetchJobs = async () => {
     if (!employerUid) {
       setJobs([]);
@@ -211,16 +183,18 @@ export default function EmployerDashboardPage() {
     try {
       const fetchedJobs = await listEmployerJobs({ employerUid });
       setJobs(fetchedJobs);
-      await fetchResponseCounts(fetchedJobs.map((j) => j.id));
+
+      const counts = await getApplicationCountsByJobIds(
+        fetchedJobs.map((j) => j.id)
+      );
+      setResponseCounts(counts);
     } finally {
       setLoading(false);
     }
   };
 
-  /* ---------- Trigger fetch ---------- */
   useEffect(() => {
     fetchJobs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employerUid]);
 
   /* ---------- Counts ---------- */
@@ -254,129 +228,131 @@ export default function EmployerDashboardPage() {
   };
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
-      <aside className="hidden rounded-lg border bg-white p-6 lg:block">
-        <FiltersPanel
-          status={status}
-          setStatus={setStatus}
-          search={search}
-          setSearch={setSearch}
-          statusCounts={statusCounts}
-          onClear={clearFilters}
-        />
-      </aside>
+    <EmployerGate>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
+        <aside className="hidden rounded-lg border bg-white p-6 lg:block">
+          <FiltersPanel
+            status={status}
+            setStatus={setStatus}
+            search={search}
+            setSearch={setSearch}
+            statusCounts={statusCounts}
+            onClear={clearFilters}
+          />
+        </aside>
 
-      <main className="space-y-6 p-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-4xl font-bold">Jobs & Responses</h1>
-            <p className="mt-2 text-gray-600">
-              Manage your posted jobs and view responses.
-            </p>
+        <main className="space-y-6 p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-4xl font-bold">Jobs & Responses</h1>
+              <p className="mt-2 text-gray-600">
+                Manage your posted jobs and view responses.
+              </p>
+            </div>
+
+            <Link href="/employer/post-job">
+              <Button className="bg-orange-500 hover:bg-orange-600">
+                + Post New Job
+              </Button>
+            </Link>
           </div>
 
-          <Link href="/employer/post-job">
-            <Button className="bg-orange-500 hover:bg-orange-600">
-              + Post New Job
-            </Button>
-          </Link>
-        </div>
+          <div className="rounded-2xl border bg-white p-6">
+            {loading ? (
+              <div className="text-gray-600">Loading…</div>
+            ) : filteredJobs.length === 0 ? (
+              <div className="py-16 text-center text-gray-700">
+                No jobs match your filters.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredJobs.map((job) => {
+                  const s = normalizeJobStatus(job.status);
 
-        <div className="rounded-2xl border bg-white p-6">
-          {loading ? (
-            <div className="text-gray-600">Loading…</div>
-          ) : filteredJobs.length === 0 ? (
-            <div className="py-16 text-center text-gray-700">
-              No jobs match your filters.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredJobs.map((job) => {
-                const s = normalizeJobStatus(job.status);
-
-                return (
-                  <div
-                    key={job.id}
-                    className="flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4"
-                  >
-                    <div>
-                      <div className="font-semibold">{job.title}</div>
-                      <div className="text-sm text-gray-600">
-                        {job.companyName} • {job.location}
+                  return (
+                    <div
+                      key={job.id}
+                      className="flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4"
+                    >
+                      <div>
+                        <div className="font-semibold">{job.title}</div>
+                        <div className="text-sm text-gray-600">
+                          {job.companyName} • {job.location}
+                        </div>
+                        <div className="mt-1 flex items-center gap-3">
+                          <Badge variant="secondary">{s}</Badge>
+                          <span className="text-sm text-muted-foreground">
+                            Responses: {responseCounts[job.id] || 0}
+                          </span>
+                        </div>
                       </div>
-                      <div className="mt-1 flex items-center gap-3">
-                        <Badge variant="secondary">{s}</Badge>
-                        <span className="text-sm text-muted-foreground">
-                          Responses: {responseCounts[job.id] || 0}
-                        </span>
-                      </div>
-                    </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          router.push(`/employer/jobs/${job.id}/edit`)
-                        }
-                      >
-                        Edit
-                      </Button>
-
-                      {s === "draft" ? (
+                      <div className="flex flex-wrap gap-2">
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={async () => {
-                            await updateJobStatus(job.id, "open");
-                            await fetchJobs();
-                          }}
+                          onClick={() =>
+                            router.push(`/employer/jobs/${job.id}/edit`)
+                          }
                         >
-                          Publish
+                          Edit
                         </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={async () => {
-                            await updateJobStatus(job.id, "draft");
-                            await fetchJobs();
-                          }}
-                        >
-                          Move to Draft
-                        </Button>
-                      )}
 
-                      {s === "closed" ? (
-                        <Button
-                          size="sm"
-                          onClick={async () => {
-                            await updateJobStatus(job.id, "open");
-                            await fetchJobs();
-                          }}
-                        >
-                          Reopen
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={async () => {
-                            await updateJobStatus(job.id, "closed");
-                            await fetchJobs();
-                          }}
-                        >
-                          Close
-                        </Button>
-                      )}
+                        {s === "draft" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              await updateJobStatus(job.id, "open");
+                              await fetchJobs();
+                            }}
+                          >
+                            Publish
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              await updateJobStatus(job.id, "draft");
+                              await fetchJobs();
+                            }}
+                          >
+                            Move to Draft
+                          </Button>
+                        )}
+
+                        {s === "closed" ? (
+                          <Button
+                            size="sm"
+                            onClick={async () => {
+                              await updateJobStatus(job.id, "open");
+                              await fetchJobs();
+                            }}
+                          >
+                            Reopen
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={async () => {
+                              await updateJobStatus(job.id, "closed");
+                              await fetchJobs();
+                            }}
+                          >
+                            Close
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </main>
-    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+    </EmployerGate>
   );
 }

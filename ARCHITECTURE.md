@@ -289,3 +289,6 @@ Use Firebase Emulator Suite (Firestore) to test security rules safely before pub
 - Before beta, migrate ID generation to:
   - Cloud Function OR
   - Admin-only rule
+### Application Counts
+- Firestore limits `in` queries to 10 values.
+- Employer dashboard batches jobIds in chunks of 10 to fetch application counts safely.

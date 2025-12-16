@@ -371,3 +371,31 @@ Temporarily allowed authenticated read/write access to `/counters/{docId}` for M
 
 ### Status
 System stable. Job create → dashboard → filters all working.
+## 2025-12-16 05:05 (IST) — Employer MVP Stabilized & Committed
+
+- Employer login, dashboard, job posting fully functional
+- Firestore rules corrected for serverTimestamp + counters
+- Legacy jobs migrated successfully
+- System committed and tagged as `employer-mvp-stable`
+## 2025-12-16 05:20 (IST) — Added EmployerGate auth guard for employer pages
+
+### Change
+Created a small client-side auth gate that:
+- waits for Firebase auth state
+- redirects unauthenticated users to /employer/login
+
+### Files
+- src/components/auth/EmployerGate.tsx
+- src/app/employer/dashboard/page.tsx (wrapped with EmployerGate)
+- src/app/employer/post-job/page.tsx (wrapped with EmployerGate)
+## 2025-12-16 05:30 (IST) — Fixed responses count for >10 jobs (Firestore in-query batching)
+
+### Problem
+Responses count query used `where("jobId", "in", jobIds.slice(0,10))`, so it ignored jobs beyond 10.
+
+### Fix
+Added helper to batch `jobId in [...]` queries in chunks of 10 and aggregate counts across all jobs.
+
+### Files
+- src/lib/firebase/getApplicationCountsByJobIds.ts (new)
+- src/app/employer/dashboard/page.tsx (use helper)

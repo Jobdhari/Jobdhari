@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, onAuthStateChanged, User } from "firebase/auth";
+
+import EmployerGate from "@/components/auth/EmployerGate";
 import { createEmployerJob } from "@/lib/firebase/employerJobsService";
 
 export default function EmployerPostJobPage() {
@@ -93,88 +95,90 @@ export default function EmployerPostJobPage() {
   }
 
   return (
-    <div className="p-8">
-      <div className="max-w-3xl">
-        <h1 className="text-4xl font-bold">Post a New Job</h1>
-        <p className="mt-2 text-gray-600">
-          Create a job opening that will appear to candidates on JobDhari.
-        </p>
+    <EmployerGate>
+      <div className="p-8">
+        <div className="max-w-3xl">
+          <h1 className="text-4xl font-bold">Post a New Job</h1>
+          <p className="mt-2 text-gray-600">
+            Create a job opening that will appear to candidates on JobDhari.
+          </p>
 
-        <form
-          onSubmit={onSubmit}
-          className="mt-8 space-y-5 rounded-2xl border bg-white p-6"
-        >
-          {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 whitespace-pre-wrap">
-              {error}
+          <form
+            onSubmit={onSubmit}
+            className="mt-8 space-y-5 rounded-2xl border bg-white p-6"
+          >
+            {error && (
+              <div className="whitespace-pre-wrap rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
+            <div>
+              <label className="font-semibold">Job Title *</label>
+              <input
+                className="mt-2 w-full rounded-md border px-3 py-2"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
             </div>
-          )}
 
-          <div>
-            <label className="font-semibold">Job Title *</label>
-            <input
-              className="mt-2 w-full rounded-md border px-3 py-2"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
+            <div>
+              <label className="font-semibold">Company Name</label>
+              <input
+                className="mt-2 w-full rounded-md border px-3 py-2"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+              />
+            </div>
 
-          <div>
-            <label className="font-semibold">Company Name</label>
-            <input
-              className="mt-2 w-full rounded-md border px-3 py-2"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-            />
-          </div>
+            <div>
+              <label className="font-semibold">Location</label>
+              <input
+                className="mt-2 w-full rounded-md border px-3 py-2"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+              />
+            </div>
 
-          <div>
-            <label className="font-semibold">Location</label>
-            <input
-              className="mt-2 w-full rounded-md border px-3 py-2"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
-          </div>
+            <div>
+              <label className="font-semibold">Category / Function</label>
+              <input
+                className="mt-2 w-full rounded-md border px-3 py-2"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              />
+            </div>
 
-          <div>
-            <label className="font-semibold">Category / Function</label>
-            <input
-              className="mt-2 w-full rounded-md border px-3 py-2"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            />
-          </div>
+            <div>
+              <label className="font-semibold">Job Description</label>
+              <textarea
+                className="mt-2 w-full min-h-[140px] rounded-md border px-3 py-2"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
 
-          <div>
-            <label className="font-semibold">Job Description</label>
-            <textarea
-              className="mt-2 w-full min-h-[140px] rounded-md border px-3 py-2"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                className="rounded-lg border px-5 py-2"
+                onClick={() => router.push("/employer/dashboard")}
+                disabled={saving}
+              >
+                Cancel
+              </button>
 
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <button
-              type="button"
-              className="rounded-lg border px-5 py-2"
-              onClick={() => router.push("/employer/dashboard")}
-              disabled={saving}
-            >
-              Cancel
-            </button>
-
-            <button
-              type="submit"
-              className="rounded-lg bg-orange-500 px-5 py-2 font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
-              disabled={saving}
-            >
-              {saving ? "Posting..." : "Post Job"}
-            </button>
-          </div>
-        </form>
+              <button
+                type="submit"
+                className="rounded-lg bg-orange-500 px-5 py-2 font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
+                disabled={saving}
+              >
+                {saving ? "Posting..." : "Post Job"}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </EmployerGate>
   );
 }
