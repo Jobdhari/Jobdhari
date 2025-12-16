@@ -399,3 +399,34 @@ Added helper to batch `jobId in [...]` queries in chunks of 10 and aggregate cou
 ### Files
 - src/lib/firebase/getApplicationCountsByJobIds.ts (new)
 - src/app/employer/dashboard/page.tsx (use helper)
+## 2025-12-16 05:40 (IST) — Employer auth guard + response count batching committed
+
+### Added
+- EmployerGate to redirect unauthenticated users away from employer pages
+- Responses count query batching to remove Firestore `in` query 10-item limit
+
+### Git
+- Committed and pushed stable checkpoint
+- Tag: employer-dashboard-stable-2
+## 2025-12-16 05:55 (IST) — Added Repost/Bump + safer employer job actions
+
+### Added
+- Repost button: sets job to open + published and bumps updatedAt (moves job to top)
+
+### Improved
+- Added per-job action loading state so buttons disable while an action is running
+- Centralized job actions via a single helper to avoid duplicate async logic
+
+### Files
+- src/lib/updateJobFields.ts (new)
+- src/app/employer/dashboard/page.tsx (repost + UX polish)
+## 2025-12-16 06:30 (IST) — Employer UX: toast feedback for job actions
+
+### Added
+- Toast notifications for employer job actions (loading/success/error)
+
+### Files
+- src/app/layout.tsx (Toaster added)
+- src/app/employer/dashboard/page.tsx (runJobAction now toasts)
+### Dependencies
+- sonner

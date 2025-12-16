@@ -292,3 +292,19 @@ Use Firebase Emulator Suite (Firestore) to test security rules safely before pub
 ### Application Counts
 - Firestore limits `in` queries to 10 values.
 - Employer dashboard batches jobIds in chunks of 10 to fetch application counts safely.
+### Employer route guarding
+- Employer pages use a client-side EmployerGate that waits for Firebase auth state and redirects unauthenticated users to /employer/login.
+
+### Application counts batching
+- Firestore `in` queries support max 10 values; counts are fetched in chunks of 10 and aggregated.
+### Employer job actions
+- Job actions update only allowed fields and always set updatedAt=serverTimestamp().
+- Repost = { status: "open", isPublished: true } + updatedAt bump.
+## 2025-12-16 06:15 (IST) — Employer UX: confirm dialog for Close job
+
+### Change
+- Replaced one-click “Close” with a confirmation dialog to prevent accidental closures.
+
+### Files
+- src/components/employer/ConfirmCloseDialog.tsx (new)
+- src/app/employer/dashboard/page.tsx (use dialog)

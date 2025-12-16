@@ -8,16 +8,17 @@ import {
   useSearchParams,
 } from "next/navigation";
 import { getAuth } from "firebase/auth";
+import { toast } from "sonner";
 
 import EmployerGate from "@/components/auth/EmployerGate";
+import ConfirmCloseDialog from "@/components/employer/ConfirmCloseDialog";
 
-import { db } from "@/lib/firebase";
 import {
   EmployerJob,
   listEmployerJobs,
 } from "@/lib/firebase/employerJobsService";
-import { updateJobStatus } from "@/lib/updateJobStatus";
 import { getApplicationCountsByJobIds } from "@/lib/firebase/getApplicationCountsByJobIds";
+import { updateJobFields } from "@/lib/updateJobFields";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,11 +29,9 @@ import { Badge } from "@/components/ui/badge";
 ========================= */
 function normalizeJobStatus(raw: unknown): "open" | "closed" | "draft" {
   const s = String(raw ?? "").toLowerCase().trim();
-
   if (s === "open" || s === "closed" || s === "draft") return s;
   if (s === "active" || s === "approved" || s === "published") return "open";
   if (s === "inactive") return "closed";
-
   return "open";
 }
 
@@ -90,19 +89,12 @@ function FiltersPanel({
                   statusCounts.closed +
                   statusCounts.draft;
 
-            const active = status === x.key;
-
             return (
               <button
                 key={x.key}
                 type="button"
                 onClick={() => setStatus(x.key as any)}
-                className={[
-                  "flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm",
-                  active
-                    ? "bg-muted font-medium"
-                    : "hover:bg-muted/50",
-                ].join(" ")}
+                className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm hover:bg-muted/50"
               >
                 <span>{x.label}</span>
                 <Badge>{count}</Badge>
@@ -128,57 +120,42 @@ export default function EmployerDashboardPage() {
   const [responseCounts, setResponseCounts] = useState<Record<string, number>>(
     {}
   );
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
+    {}
+  );
 
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const employerUid = getAuth().currentUser?.uid;
 
   const [status, setStatus] = useState<
     "all" | "open" | "closed" | "draft"
   >("all");
   const [search, setSearch] = useState("");
 
-  const employerUid = getAuth().currentUser?.uid;
-
-  /* ---------- URL → State ---------- */
+  /* ---------- URL sync ---------- */
   useEffect(() => {
     const urlStatus = (searchParams.get("status") || "all").toLowerCase();
     const urlQ = searchParams.get("q") || "";
-
-    const allowed = new Set(["all", "open", "closed", "draft"]);
-    const safeStatus = allowed.has(urlStatus)
-      ? (urlStatus as any)
-      : "all";
-
-    setStatus((prev) => (prev === safeStatus ? prev : safeStatus));
-    setSearch((prev) => (prev === urlQ ? prev : urlQ));
+    setStatus(
+      ["all", "open", "closed", "draft"].includes(urlStatus)
+        ? (urlStatus as any)
+        : "all"
+    );
+    setSearch(urlQ);
   }, [searchParams]);
 
-  /* ---------- State → URL ---------- */
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
-
-    if (status !== "all") params.set("status", status);
-    else params.delete("status");
-
-    const q = search.trim();
-    if (q) params.set("q", q);
-    else params.delete("q");
-
-    router.replace(
-      params.toString() ? `${pathname}?${params}` : pathname
-    );
+    status !== "all" ? params.set("status", status) : params.delete("status");
+    search ? params.set("q", search) : params.delete("q");
+    router.replace(params.toString() ? `${pathname}?${params}` : pathname);
   }, [status, search, pathname]);
 
   /* ---------- Fetch jobs ---------- */
   const fetchJobs = async () => {
-    if (!employerUid) {
-      setJobs([]);
-      setResponseCounts({});
-      setLoading(false);
-      return;
-    }
-
+    if (!employerUid) return;
     setLoading(true);
     try {
       const fetchedJobs = await listEmployerJobs({ employerUid });
@@ -197,59 +174,78 @@ export default function EmployerDashboardPage() {
     fetchJobs();
   }, [employerUid]);
 
-  /* ---------- Counts ---------- */
-  const statusCounts = useMemo(() => {
-    const counts = { open: 0, closed: 0, draft: 0 };
-    for (const j of jobs) {
-      counts[normalizeJobStatus(j.status)]++;
+  /* ---------- Toast-enabled job action ---------- */
+  const runJobAction = async (
+    jobId: string,
+    fn: () => Promise<void>,
+    messages?: { loading?: string; success?: string; error?: string }
+  ) => {
+    setActionLoading((prev) => ({ ...prev, [jobId]: true }));
+
+    const toastId = messages?.loading
+      ? toast.loading(messages.loading)
+      : null;
+
+    try {
+      await fn();
+      await fetchJobs();
+
+      if (toastId)
+        toast.success(messages?.success || "Done", { id: toastId });
+      else if (messages?.success) toast.success(messages.success);
+    } catch (e: any) {
+      const msg =
+        messages?.error ||
+        e?.message ||
+        "Action failed. Please try again.";
+
+      if (toastId) toast.error(msg, { id: toastId });
+      else toast.error(msg);
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [jobId]: false }));
     }
-    return counts;
+  };
+
+  const statusCounts = useMemo(() => {
+    const c = { open: 0, closed: 0, draft: 0 };
+    jobs.forEach((j) => c[normalizeJobStatus(j.status)]++);
+    return c;
   }, [jobs]);
 
-  /* ---------- Filtered jobs ---------- */
   const filteredJobs = useMemo(() => {
-    const q = search.trim().toLowerCase();
-
+    const q = search.toLowerCase();
     return jobs.filter((j) => {
       const s = normalizeJobStatus(j.status);
       return (
         (status === "all" || s === status) &&
-        (q === "" ||
-          String(j.title).toLowerCase().includes(q) ||
-          String(j.companyName).toLowerCase().includes(q) ||
-          String(j.location).toLowerCase().includes(q))
+        (!q ||
+          j.title.toLowerCase().includes(q) ||
+          j.companyName.toLowerCase().includes(q) ||
+          j.location.toLowerCase().includes(q))
       );
     });
   }, [jobs, status, search]);
 
-  const clearFilters = () => {
-    setStatus("all");
-    setSearch("");
-  };
-
   return (
     <EmployerGate>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
-        <aside className="hidden rounded-lg border bg-white p-6 lg:block">
+        <aside className="hidden border bg-white p-6 lg:block">
           <FiltersPanel
             status={status}
             setStatus={setStatus}
             search={search}
             setSearch={setSearch}
             statusCounts={statusCounts}
-            onClear={clearFilters}
+            onClear={() => {
+              setStatus("all");
+              setSearch("");
+            }}
           />
         </aside>
 
         <main className="space-y-6 p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-4xl font-bold">Jobs & Responses</h1>
-              <p className="mt-2 text-gray-600">
-                Manage your posted jobs and view responses.
-              </p>
-            </div>
-
+          <div className="flex justify-between">
+            <h1 className="text-4xl font-bold">Jobs & Responses</h1>
             <Link href="/employer/post-job">
               <Button className="bg-orange-500 hover:bg-orange-600">
                 + Post New Job
@@ -257,100 +253,157 @@ export default function EmployerDashboardPage() {
             </Link>
           </div>
 
-          <div className="rounded-2xl border bg-white p-6">
-            {loading ? (
-              <div className="text-gray-600">Loading…</div>
-            ) : filteredJobs.length === 0 ? (
-              <div className="py-16 text-center text-gray-700">
-                No jobs match your filters.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredJobs.map((job) => {
-                  const s = normalizeJobStatus(job.status);
+          {filteredJobs.map((job) => {
+            const s = normalizeJobStatus(job.status);
 
-                  return (
-                    <div
-                      key={job.id}
-                      className="flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4"
-                    >
-                      <div>
-                        <div className="font-semibold">{job.title}</div>
-                        <div className="text-sm text-gray-600">
-                          {job.companyName} • {job.location}
-                        </div>
-                        <div className="mt-1 flex items-center gap-3">
-                          <Badge variant="secondary">{s}</Badge>
-                          <span className="text-sm text-muted-foreground">
-                            Responses: {responseCounts[job.id] || 0}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            router.push(`/employer/jobs/${job.id}/edit`)
-                          }
-                        >
-                          Edit
-                        </Button>
-
-                        {s === "draft" ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={async () => {
-                              await updateJobStatus(job.id, "open");
-                              await fetchJobs();
-                            }}
-                          >
-                            Publish
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={async () => {
-                              await updateJobStatus(job.id, "draft");
-                              await fetchJobs();
-                            }}
-                          >
-                            Move to Draft
-                          </Button>
-                        )}
-
-                        {s === "closed" ? (
-                          <Button
-                            size="sm"
-                            onClick={async () => {
-                              await updateJobStatus(job.id, "open");
-                              await fetchJobs();
-                            }}
-                          >
-                            Reopen
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={async () => {
-                              await updateJobStatus(job.id, "closed");
-                              await fetchJobs();
-                            }}
-                          >
-                            Close
-                          </Button>
-                        )}
-                      </div>
+            return (
+              <div key={job.id} className="rounded-xl border p-4">
+                <div className="flex justify-between gap-4">
+                  <div>
+                    <div className="font-semibold">{job.title}</div>
+                    <div className="text-sm text-gray-600">
+                      {job.companyName} • {job.location}
                     </div>
-                  );
-                })}
+                    <Badge className="mt-1">{s}</Badge>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={actionLoading[job.id]}
+                      onClick={() =>
+                        router.push(`/employer/jobs/${job.id}/edit`)
+                      }
+                    >
+                      Edit
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={actionLoading[job.id]}
+                      onClick={() =>
+                        runJobAction(
+                          job.id,
+                          async () => {
+                            await updateJobFields(job.id, {
+                              status: "open",
+                              isPublished: true,
+                            });
+                          },
+                          {
+                            loading: "Reposting…",
+                            success: "Reposted (bumped to top).",
+                            error: "Repost failed.",
+                          }
+                        )
+                      }
+                    >
+                      Repost
+                    </Button>
+
+                    {s === "draft" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={actionLoading[job.id]}
+                        onClick={() =>
+                          runJobAction(
+                            job.id,
+                            async () => {
+                              await updateJobFields(job.id, {
+                                status: "open",
+                                isPublished: true,
+                              });
+                            },
+                            {
+                              loading: "Publishing…",
+                              success: "Job published.",
+                              error: "Publish failed.",
+                            }
+                          )
+                        }
+                      >
+                        Publish
+                      </Button>
+                    )}
+
+                    {s !== "draft" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={actionLoading[job.id]}
+                        onClick={() =>
+                          runJobAction(
+                            job.id,
+                            async () => {
+                              await updateJobFields(job.id, {
+                                status: "draft",
+                                isPublished: false,
+                              });
+                            },
+                            {
+                              loading: "Moving to draft…",
+                              success: "Moved to draft.",
+                              error: "Failed to move to draft.",
+                            }
+                          )
+                        }
+                      >
+                        Move to Draft
+                      </Button>
+                    )}
+
+                    {s === "closed" ? (
+                      <Button
+                        size="sm"
+                        disabled={actionLoading[job.id]}
+                        onClick={() =>
+                          runJobAction(
+                            job.id,
+                            async () => {
+                              await updateJobFields(job.id, {
+                                status: "open",
+                                isPublished: true,
+                              });
+                            },
+                            {
+                              loading: "Reopening…",
+                              success: "Job reopened.",
+                              error: "Failed to reopen job.",
+                            }
+                          )
+                        }
+                      >
+                        Reopen
+                      </Button>
+                    ) : (
+                      <ConfirmCloseDialog
+                        disabled={actionLoading[job.id]}
+                        onConfirm={async () => {
+                          await runJobAction(
+                            job.id,
+                            async () => {
+                              await updateJobFields(job.id, {
+                                status: "closed",
+                                isPublished: false,
+                              });
+                            },
+                            {
+                              loading: "Closing…",
+                              success: "Job closed.",
+                              error: "Failed to close job.",
+                            }
+                          );
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
+            );
+          })}
         </main>
       </div>
     </EmployerGate>
