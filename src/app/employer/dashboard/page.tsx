@@ -7,7 +7,7 @@ import {
   useRouter,
   useSearchParams,
 } from "next/navigation";
-import { getAuth } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { toast } from "sonner";
 
 import EmployerGate from "@/components/auth/EmployerGate";
@@ -124,15 +124,25 @@ export default function EmployerDashboardPage() {
     {}
   );
 
+  const [employerId, setEmployerId] = useState<string | null>(null);
+
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const employerUid = getAuth().currentUser?.uid;
 
   const [status, setStatus] = useState<
     "all" | "open" | "closed" | "draft"
   >("all");
   const [search, setSearch] = useState("");
+
+  /* ---------- Auth sync ---------- */
+  useEffect(() => {
+    const auth = getAuth();
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setEmployerId(u?.uid ?? null);
+    });
+    return () => unsub();
+  }, []);
 
   /* ---------- URL sync ---------- */
   useEffect(() => {
@@ -155,10 +165,10 @@ export default function EmployerDashboardPage() {
 
   /* ---------- Fetch jobs ---------- */
   const fetchJobs = async () => {
-    if (!employerUid) return;
+    if (!employerId) return;
     setLoading(true);
     try {
-      const fetchedJobs = await listEmployerJobs({ employerUid });
+      const fetchedJobs = await listEmployerJobs({ employerUid: employerId });
       setJobs(fetchedJobs);
 
       const counts = await getApplicationCountsByJobIds(
@@ -172,7 +182,7 @@ export default function EmployerDashboardPage() {
 
   useEffect(() => {
     fetchJobs();
-  }, [employerUid]);
+  }, [employerId]);
 
   /* ---------- Toast-enabled job action ---------- */
   const runJobAction = async (

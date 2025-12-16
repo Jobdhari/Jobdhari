@@ -132,3 +132,9 @@ The product emphasizes:
 ✅ Job posting  
 ✅ Job status management (open / closed / draft)  
 ⚠ Counters secured only for MVP (to be hardened before beta)
+- Posting a job publishes it immediately in MVP (no manual publish step).
+### Publishing rules (MVP decision)
+- Posting a job publishes it immediately:
+  - status = "open"
+  - isPublished = true
+- Drafts exist only as an explicit employer action ("Move to Draft").

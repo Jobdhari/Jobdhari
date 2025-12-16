@@ -308,3 +308,13 @@ Use Firebase Emulator Suite (Firestore) to test security rules safely before pub
 ### Files
 - src/components/employer/ConfirmCloseDialog.tsx (new)
 - src/app/employer/dashboard/page.tsx (use dialog)
+### Public job detail
+Route: /jobs/[id]
+- Fetches job doc by id
+- Only renders if isPublished=true AND status="open"
+### Job lifecycle (MVP)
+- Default on create: open + published
+- Employer can later set:
+  - draft (unpublished)
+  - closed (unpublished)
+- Public discovery only shows: isPublished=true AND status="open"

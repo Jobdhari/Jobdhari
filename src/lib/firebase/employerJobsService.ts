@@ -66,24 +66,27 @@ export async function listEmployerJobs(params: { employerUid: string }) {
 }
 
 /**
- * ✅ Job creation (canonical fields)
- * Default: creates an OPEN + published job (MVP behavior)
+ * ✅ Job creation (canonical, production-safe)
+ * Default: OPEN + published
  */
 export async function createEmployerJob(input: {
-  employerUid: string;
+  employerId: string;
   title: string;
   companyName: string;
   location: string;
   category: string;
   description?: string;
+
+  // Optional overrides (future-proof)
   status?: JobStatus;
   isPublished?: boolean;
 }) {
-  if (!input.employerUid) throw new Error("Missing employerUid");
+  if (!input.employerId) throw new Error("Missing employerId");
 
   const jobDhariId = await generateJobDhariId();
-  const status: JobStatus = input.status ?? "open";
-  const isPublished = input.isPublished ?? status === "open";
+
+  const status: JobStatus = input.status ?? "open";       // ✅ publish by default
+  const isPublished: boolean = input.isPublished ?? true; // ✅ publish by default
 
   const ref = await addDoc(collection(db, "jobs"), {
     jobDhariId,
@@ -92,14 +95,13 @@ export async function createEmployerJob(input: {
     companyName: input.companyName.trim(),
     location: input.location.trim(),
     category: input.category.trim(),
-    description: input.description?.trim() ?? "",
+    description: (input.description || "").trim(),
 
     status,
     isPublished,
 
-    // ✅ MUST ALWAYS WRITE BOTH
-    createdByUid: input.employerUid,
-    postedByUid: input.employerUid,
+    createdByUid: input.employerId,
+    postedByUid: input.employerId,
 
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),

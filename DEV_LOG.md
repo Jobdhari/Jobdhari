@@ -430,3 +430,24 @@ Added helper to batch `jobId in [...]` queries in chunks of 10 and aggregate cou
 - src/app/employer/dashboard/page.tsx (runJobAction now toasts)
 ### Dependencies
 - sonner
+## 2025-12-16 07:05 (IST) — Added public job detail page
+
+- Added getPublicJobById() helper for public-safe job fetching
+- Added /jobs/[id] page with apply CTA (apply flow next)
+## 2025-12-16 07:35 (IST) — Added Apply gate foundation
+- Added /apply/[id] route
+- Enforced login requirement before apply
+- Validated job availability before application
+- Redirect-based flow for future profile/apply steps
+## 2025-12-16 07:55 (IST) — Fixed public job visibility + dashboard refresh jobs bug
+
+### Public jobs visibility
+- Root cause: new jobs were created as draft/unpublished, so /jobs page did not show them.
+- Fix: createEmployerJob now defaults to status="open" and isPublished=true for MVP.
+
+### Employer dashboard refresh
+- Root cause: relying on getAuth().currentUser caused employerId to be undefined on initial refresh.
+- Fix: dashboard now derives employerId via onAuthStateChanged() for stable loading.
+## 2025-12-16 08:05 (IST) — MVP decision: job posts are published immediately
+- Default job creation now uses status="open" and isPublished=true
+- Drafts remain available only via explicit employer action

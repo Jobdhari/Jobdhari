@@ -70,14 +70,12 @@ export default function EmployerPostJobPage() {
 
     try {
       await createEmployerJob({
-        employerUid: user.uid,
-        title: title.trim(),
-        companyName: companyName.trim(),
-        location: location.trim(),
-        category: category.trim(),
-        description: description.trim(),
-        status: "open",
-        isPublished: true,
+        employerId: user.uid,
+        title,
+        companyName,
+        location,
+        category,
+        description,
       });
 
       router.push("/employer/dashboard");
