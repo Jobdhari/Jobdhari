@@ -283,3 +283,9 @@ Use Firebase Emulator Suite (Firestore) to test security rules safely before pub
 ## Data maintenance
 - Admin SDK dry-run migration script exists for `jobs` normalization verification.
 - Current `jobs` docs (sample size 11) already conform to canonical schema.
+### Job ID Generation
+- JobDhari IDs are generated via a shared `/counters` document.
+- Current MVP allows authenticated access to counters.
+- Before beta, migrate ID generation to:
+  - Cloud Function OR
+  - Admin-only rule

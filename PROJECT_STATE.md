@@ -126,3 +126,9 @@ The product emphasizes:
 - [x] Employer can edit a job (basic fields) from dashboard
 - [x] Show real application counts per job on Employer Dashboard
 - [x] Add MVP Firestore security rules for jobs + applications (owner-only writes, safe public reads)
+### Employer MVP — Status
+✅ Employer login  
+✅ Employer dashboard (Jobs & Responses)  
+✅ Job posting  
+✅ Job status management (open / closed / draft)  
+⚠ Counters secured only for MVP (to be hardened before beta)

@@ -332,3 +332,42 @@ Ran Admin SDK dry-run migration script against `jobs` collection.
 
 ### Conclusion
 No legacy normalization required for current jobs dataset. Remaining issues are likely Auth/Rules/config, not job document schema.
+## 2025-12-16 04:25 (IST) — Fix job posting permission-denied (Firestore rules)
+
+### Problem
+Employer Post Job failed with: `permission-denied: Missing or insufficient permissions`.
+
+### Root cause
+Firestore rules incorrectly required `createdAt/updatedAt == request.time`, which fails when the client writes `serverTimestamp()`.
+
+### Fix
+Relaxed timestamp equality checks and validated create/update using:
+- ownership (createdByUid/postedByUid == auth.uid)
+- allowed fields only
+- allowed status enum (open/closed/draft)
+## 2025-12-16 04:50 (IST) — Unblocked Post Job by allowing counters access (MVP)
+
+### Problem
+Post Job failed with `permission-denied` even after fixing jobs rules.
+
+### Root cause
+`generateJobDhariId()` writes to `/counters/*`, but rules denied all counters reads/writes.
+
+### Fix
+Temporarily allowed authenticated read/write on `/counters/{docId}` to unblock job posting.
+
+### Note
+This is an MVP-only relaxation; tighten before beta (prefer Cloud Function ID generation).
+## 2025-12-16 04:58 (IST) — Employer Job Posting Fully Unblocked
+
+### Outcome
+Employer can now successfully post jobs.
+
+### Root cause (final)
+`generateJobDhariId()` writes to `/counters/*`, but Firestore rules denied all access to counters, causing silent `permission-denied` during job creation.
+
+### Fix
+Temporarily allowed authenticated read/write access to `/counters/{docId}` for MVP.
+
+### Status
+System stable. Job create → dashboard → filters all working.

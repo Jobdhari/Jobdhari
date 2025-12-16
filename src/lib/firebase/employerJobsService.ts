@@ -21,6 +21,7 @@ export interface EmployerJob {
   companyName: string;
   location: string;
   category: string;
+  description?: string;
   status: JobStatus | string;
   isPublished: boolean;
   createdByUid: string;
@@ -30,18 +31,15 @@ export interface EmployerJob {
 }
 
 /**
- * ✅ Employer dashboard job list
- * Owner-only fetch (rules-compliant)
+ * ✅ Employer dashboard job list (owner-only)
  */
-export async function listEmployerJobs(params: {
-  employerId: string;
-}) {
-  const { employerId } = params;
-  if (!employerId) return [];
+export async function listEmployerJobs(params: { employerUid: string }) {
+  const { employerUid } = params;
+  if (!employerUid) return [];
 
   const q = query(
     collection(db, "jobs"),
-    where("postedByUid", "==", employerId),
+    where("postedByUid", "==", employerUid),
     orderBy("updatedAt", "desc")
   );
 
@@ -56,6 +54,7 @@ export async function listEmployerJobs(params: {
       companyName: data.companyName,
       location: data.location,
       category: data.category,
+      description: data.description,
       status: data.status,
       isPublished: data.isPublished,
       createdByUid: data.createdByUid,
@@ -67,21 +66,24 @@ export async function listEmployerJobs(params: {
 }
 
 /**
- * ✅ RULES-COMPLIANT JOB CREATION
- * This FIXES your posting error
+ * ✅ Job creation (canonical fields)
+ * Default: creates an OPEN + published job (MVP behavior)
  */
 export async function createEmployerJob(input: {
+  employerUid: string;
   title: string;
   companyName: string;
   location: string;
   category: string;
-  employerId: string;
+  description?: string;
+  status?: JobStatus;
+  isPublished?: boolean;
 }) {
-  if (!input.employerId) {
-    throw new Error("Missing employerId");
-  }
+  if (!input.employerUid) throw new Error("Missing employerUid");
 
   const jobDhariId = await generateJobDhariId();
+  const status: JobStatus = input.status ?? "open";
+  const isPublished = input.isPublished ?? status === "open";
 
   const ref = await addDoc(collection(db, "jobs"), {
     jobDhariId,
@@ -90,13 +92,14 @@ export async function createEmployerJob(input: {
     companyName: input.companyName.trim(),
     location: input.location.trim(),
     category: input.category.trim(),
+    description: input.description?.trim() ?? "",
 
-    // 🔒 REQUIRED BY RULES
-    status: "draft",
-    isPublished: false,
+    status,
+    isPublished,
 
-    createdByUid: input.employerId,
-    postedByUid: input.employerId,
+    // ✅ MUST ALWAYS WRITE BOTH
+    createdByUid: input.employerUid,
+    postedByUid: input.employerUid,
 
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),

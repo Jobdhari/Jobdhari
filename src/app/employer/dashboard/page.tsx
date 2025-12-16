@@ -141,7 +141,7 @@ export default function EmployerDashboardPage() {
   >("all");
   const [search, setSearch] = useState("");
 
-  const employerId = getAuth().currentUser?.uid;
+  const employerUid = getAuth().currentUser?.uid;
 
   /* ---------- URL → State ---------- */
   useEffect(() => {
@@ -198,9 +198,9 @@ export default function EmployerDashboardPage() {
     setResponseCounts(counts);
   };
 
-  /* ---------- Fetch jobs ---------- */
+  /* ---------- Fetch jobs (REPLACED AS REQUESTED) ---------- */
   const fetchJobs = async () => {
-    if (!employerId) {
+    if (!employerUid) {
       setJobs([]);
       setResponseCounts({});
       setLoading(false);
@@ -209,7 +209,7 @@ export default function EmployerDashboardPage() {
 
     setLoading(true);
     try {
-      const fetchedJobs = await listEmployerJobs({ employerId });
+      const fetchedJobs = await listEmployerJobs({ employerUid });
       setJobs(fetchedJobs);
       await fetchResponseCounts(fetchedJobs.map((j) => j.id));
     } finally {
@@ -217,10 +217,11 @@ export default function EmployerDashboardPage() {
     }
   };
 
+  /* ---------- Trigger fetch ---------- */
   useEffect(() => {
     fetchJobs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [employerId]);
+  }, [employerUid]);
 
   /* ---------- Counts ---------- */
   const statusCounts = useMemo(() => {
@@ -254,7 +255,6 @@ export default function EmployerDashboardPage() {
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
-      {/* Filters */}
       <aside className="hidden rounded-lg border bg-white p-6 lg:block">
         <FiltersPanel
           status={status}
@@ -266,7 +266,6 @@ export default function EmployerDashboardPage() {
         />
       </aside>
 
-      {/* Jobs */}
       <main className="space-y-6 p-6">
         <div className="flex items-start justify-between">
           <div>
