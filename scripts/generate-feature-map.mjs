@@ -19,6 +19,7 @@ const IGNORE_DIRS = new Set([
 
 const ALLOWED_EXT = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
 
+// ---------- helpers ----------
 function safeRead(filePath) {
   try {
     return fs.readFileSync(filePath, "utf8");
@@ -50,7 +51,7 @@ function rel(p) {
   return path.relative(ROOT, p).replaceAll("\\", "/");
 }
 
-// Finds /** ... */ blocks that contain @feature
+// ---------- feature block parsing ----------
 function extractFeatureBlocks(code) {
   const blocks = [];
   const re = /\/\*\*[\s\S]*?\*\//g;
@@ -79,6 +80,7 @@ function parseBlock(block) {
   };
 }
 
+// ---------- exports ----------
 function extractExports(code) {
   const out = [];
 
@@ -96,6 +98,7 @@ function extractExports(code) {
   return Array.from(new Set(out)).sort();
 }
 
+// ---------- classification ----------
 function classifyFile(filePath) {
   const p = rel(filePath);
   if (p.startsWith("src/app/") && p.endsWith("/page.tsx")) return "Page";
@@ -105,15 +108,20 @@ function classifyFile(filePath) {
   return "Other";
 }
 
-// Convert src/app/**/page.tsx -> route string
-function routeFromAppPage(filePath) {
-  const p = rel(filePath); // e.g. src/app/jobs/[id]/page.tsx
-  let inside = p.replace(/^src\/app\//, "").replace(/\/page\.tsx$/, "");
-  if (inside === "") return "/";
+// ---------- route detection (FIXED) ----------
+function routeFromAppPage(relPath) {
+  // relPath example: src/app/jobs/[id]/page.tsx OR src/app/page.tsx
+  let inside = relPath.replace(/^src\/app\//, "");
+
+  // root: src/app/page.tsx
+  if (inside === "page.tsx") return "/";
+
+  // nested: jobs/page.tsx, jobs/[id]/page.tsx
+  inside = inside.replace(/\/page\.tsx$/, "");
   return "/" + inside;
 }
 
-// Detect collection(db, "jobs") usage (best-effort)
+// ---------- Firestore collection detection ----------
 function extractFirestoreCollections(code) {
   const names = new Set();
   const re = /collection\s*\(\s*[^,]+,\s*["'`]([^"'`]+)["'`]\s*\)/g;
@@ -122,6 +130,7 @@ function extractFirestoreCollections(code) {
   return Array.from(names).sort();
 }
 
+// ---------- main ----------
 function main() {
   if (!fs.existsSync(SRC_DIR)) {
     console.error("❌ src/ not found. Run from project root.");
@@ -130,10 +139,10 @@ function main() {
 
   const files = walk(SRC_DIR);
 
-  const features = new Map(); // featureName -> entries[]
-  const inventory = []; // { file, kind, exports }
-  const routes = []; // { route, file }
-  const collectionsIndex = new Map(); // collection -> Set(files)
+  const features = new Map();
+  const inventory = [];
+  const routes = [];
+  const collectionsIndex = new Map();
 
   for (const file of files) {
     const code = safeRead(file);
@@ -141,17 +150,19 @@ function main() {
 
     const kind = classifyFile(file);
     const exports = extractExports(code);
+    const relFile = rel(file);
 
-    inventory.push({ file: rel(file), kind, exports });
+    inventory.push({ file: relFile, kind, exports });
 
-    if (kind === "Page" && file.endsWith("/page.tsx")) {
-      routes.push({ route: routeFromAppPage(file), file: rel(file) });
+    // ✅ FIXED ROUTE COLLECTION
+    if (kind === "Page" && relFile.endsWith("/page.tsx")) {
+      routes.push({ route: routeFromAppPage(relFile), file: relFile });
     }
 
     const cols = extractFirestoreCollections(code);
     for (const c of cols) {
       if (!collectionsIndex.has(c)) collectionsIndex.set(c, new Set());
-      collectionsIndex.get(c).add(rel(file));
+      collectionsIndex.get(c).add(relFile);
     }
 
     const blocks = extractFeatureBlocks(code);
@@ -160,7 +171,7 @@ function main() {
       if (!parsed) continue;
 
       const entry = {
-        file: rel(file),
+        file: relFile,
         kind,
         responsibility: parsed.responsibility,
         routes: parsed.routes,
@@ -184,11 +195,14 @@ function main() {
   lines.push(`> Do not manually edit sections below—edit code annotations instead.`);
   lines.push(``);
 
-  // Features
+  // ---------- Features ----------
   lines.push(`## Features (from @feature annotations)`);
   lines.push(``);
 
-  const featureNames = Array.from(features.keys()).sort((a, b) => a.localeCompare(b));
+  const featureNames = Array.from(features.keys()).sort((a, b) =>
+    a.localeCompare(b)
+  );
+
   if (featureNames.length === 0) {
     lines.push(`⚠️ No \`@feature\` annotations found yet.`);
     lines.push(``);
@@ -202,13 +216,17 @@ function main() {
         if (e.responsibility) lines.push(`  - Responsibility: ${e.responsibility}`);
         if (e.routes) lines.push(`  - Routes: ${e.routes}`);
         if (e.usedBy) lines.push(`  - Used by: ${e.usedBy}`);
-        if (e.exports?.length) lines.push(`  - Exports: ${e.exports.map((x) => `\`${x}\``).join(", ")}`);
+        if (e.exports?.length) {
+          lines.push(
+            `  - Exports: ${e.exports.map((x) => `\`${x}\``).join(", ")}`
+          );
+        }
       }
       lines.push(``);
     }
   }
 
-  // Routes map
+  // ---------- Routes ----------
   lines.push(`## Routes Map (auto-detected from src/app/.../page.tsx)`);
   lines.push(``);
   routes.sort((a, b) => a.route.localeCompare(b.route));
@@ -217,46 +235,49 @@ function main() {
   }
   lines.push(``);
 
-  // Firestore collections
+  // ---------- Firestore ----------
   lines.push(`## Firestore Collections (auto-detected)`);
   lines.push(``);
-  const colNames = Array.from(collectionsIndex.keys()).sort((a, b) => a.localeCompare(b));
+  const colNames = Array.from(collectionsIndex.keys()).sort((a, b) =>
+    a.localeCompare(b)
+  );
   if (colNames.length === 0) {
-    lines.push(`(No Firestore collections detected in scanned code.)`);
+    lines.push(`(No Firestore collections detected.)`);
     lines.push(``);
   } else {
     for (const c of colNames) {
       lines.push(`### ${c}`);
-      const using = Array.from(collectionsIndex.get(c)).sort((a, b) => a.localeCompare(b));
-      for (const f of using) lines.push(`- \`${f}\``);
+      for (const f of Array.from(collectionsIndex.get(c)).sort()) {
+        lines.push(`- \`${f}\``);
+      }
       lines.push(``);
     }
   }
 
-  // Inventory
+  // ---------- Inventory ----------
   lines.push(`## File Inventory (high-level)`);
   lines.push(``);
-  lines.push(`This section lists scanned files + their exported symbols.`);
-  lines.push(``);
-
   const byKind = new Map();
   for (const item of inventory) {
     if (!byKind.has(item.kind)) byKind.set(item.kind, []);
     byKind.get(item.kind).push(item);
   }
 
-  for (const [kind, items] of Array.from(byKind.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
+  for (const [kind, items] of Array.from(byKind.entries()).sort((a, b) =>
+    a[0].localeCompare(b[0])
+  )) {
     lines.push(`### ${kind}`);
     lines.push(``);
     for (const it of items.sort((a, b) => a.file.localeCompare(b.file))) {
-      lines.push(`- \`${it.file}\`${it.exports.length ? ` — ${it.exports.map((x) => `\`${x}\``).join(", ")}` : ""}`);
+      lines.push(
+        `- \`${it.file}\`${it.exports.length ? ` — ${it.exports.map((x) => `\`${x}\``).join(", ")}` : ""}`
+      );
     }
     lines.push(``);
   }
 
   fs.writeFileSync(OUT_FILE, lines.join("\n"), "utf8");
   console.log(`✅ Generated: ${rel(OUT_FILE)}`);
-  console.log(`📌 Next: add @feature blocks to key files for richer mapping.`);
 }
 
 main();
