@@ -1,3 +1,10 @@
+/**
+ * @feature Public Jobs
+ * @responsibility Read-only public job discovery (open + published)
+ * @routes /jobs, /
+ * @files src/lib/firebase/publicJobsService.ts
+ */
+
 import { db } from "@/lib/firebase";
 import {
   collection,
@@ -49,7 +56,7 @@ export async function listPublicJobs(): Promise<PublicJob[]> {
   return snap.docs.map((doc) => {
     const d = doc.data();
     return {
-      id: doc.id,
+      id: doc.id, // ✅ Firestore doc id is the canonical public job id
       jobDhariId: d.jobDhariId,
       title: d.title,
       companyName: d.companyName,

@@ -138,3 +138,22 @@ The product emphasizes:
   - status = "open"
   - isPublished = true
 - Drafts exist only as an explicit employer action ("Move to Draft").
+### Candidate MVP — Status
+✅ Public jobs listing (/jobs)
+✅ Job detail page (/jobs/[id])
+✅ Apply gate foundation (/apply/[id]) — redirects to login/profile
+⏳ Candidate profile form + application submission (next)
+✅ Public Jobs page supports search params from homepage hero: q + location (+ experience reserved)
+### Candidate MVP — Status
+- [x] Jobs list + job detail page
+- [x] Apply route exists (`/apply/[id]`)
+- [ ] Apply UX polish: block re-apply and show “Applied” state consistently (IN PROGRESS)
+- [ ] Candidate profile gating + post-profile continue apply (IN PROGRESS)
+### Candidate MVP — Status
+- [x] Candidate can apply (application created in Firestore)
+- [ ] Apply button state reflects “Applied” consistently across jobs list + job detail (IN PROGRESS)
+- [ ] Candidate dashboard (Applied jobs, profile, viewed status) (PLANNED)
+### Codebase Maintainability (MVP Process)
+- We maintain an auto-generated `docs/FEATURE_MAP.md` to track which features exist and which files implement them.
+- Regeneration command: `npm run docs:featuremap`
+- Rule: all core flows (Jobs, Apply, Employer Dashboard, Candidate Profile) must include `@feature` annotations in the main page/service files.

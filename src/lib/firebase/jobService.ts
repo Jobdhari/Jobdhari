@@ -1,6 +1,6 @@
 // src/lib/firebase/jobService.ts
 
-import { db } import { auth, db } from "@/lib/firebase";;
+import { auth, db } from "@/lib/firebase";;
 import {
   collection,
   query,

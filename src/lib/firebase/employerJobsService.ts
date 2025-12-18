@@ -1,4 +1,9 @@
-// src/lib/firebase/employerJobsService.ts
+/**
+ * @feature Employer Jobs Service
+ * @responsibility Employer job CRUD (create, list, publish)
+ * @routes /employer/dashboard, /employer/post-job
+ * @files src/lib/firebase/employerJobsService.ts
+ */
 
 import { db } from "@/lib/firebase";
 import {
@@ -85,7 +90,7 @@ export async function createEmployerJob(input: {
 
   const jobDhariId = await generateJobDhariId();
 
-  const status: JobStatus = input.status ?? "open";       // ✅ publish by default
+  const status: JobStatus = input.status ?? "open";        // ✅ publish by default
   const isPublished: boolean = input.isPublished ?? true; // ✅ publish by default
 
   const ref = await addDoc(collection(db, "jobs"), {

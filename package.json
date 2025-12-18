@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "migrate:jobs": "node src/scripts/migrate-jobs.js"
+    "migrate:jobs": "node src/scripts/migrate-jobs.js",
+    "docs:featuremap": "node scripts/generate-feature-map.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

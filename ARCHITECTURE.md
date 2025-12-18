@@ -318,3 +318,55 @@ Route: /jobs/[id]
   - draft (unpublished)
   - closed (unpublished)
 - Public discovery only shows: isPublished=true AND status="open"
+### Candidate discovery routes
+- /jobs: lists jobs where isPublished=true AND status="open"
+- /jobs/[id]: public job detail (same visibility rules)
+- /apply/[id]: apply gate (requires login, then profile, then apply)
+### Public Jobs Search (MVP)
+Route: /jobs
+URL params:
+- q: keyword/company/category search (client-side filter)
+- loc: location/pincode filter (client-side contains)
+- exp: experience bucket (stored in URL, reserved for future filtering)
+### Applications
+- Service: src/lib/firebase/applicationsService.ts
+- Collection: applications
+- Fields: jobId, userId, status="applied", appliedAt=serverTimestamp()
+### Firestore: applications (MVP contract)
+- applications/{appId}
+  - jobId: string (Firestore jobs doc id)
+  - userId: string (candidate uid)
+  - status: "applied"
+  - appliedAt: serverTimestamp
+
+### Routes (MVP)
+- /jobs — public jobs listing
+- /jobs/[id] — job detail
+- /apply/[id] — apply gate (requires auth + candidate profile; redirects to job page if already applied)
+- /employer/dashboard — job list + response counts (derived from applications.jobId)
+### Employer responses
+Route: /employer/jobs/[id]/responses
+Data: applications where jobId == [id]
+Shows: userId (candidate UID), status (MVP)
+### Application state (MVP)
+- Source of truth: applications collection
+- UI rule: Apply buttons must be rendered via components/jobs/ApplyJobButton.tsx (not raw links)
+## Auto-Generated Feature Map
+
+We maintain a repository-scanned feature map for navigation and onboarding.
+
+- Generator script: `scripts/generate-feature-map.mjs`
+- Output: `docs/FEATURE_MAP.md`
+- Command: `npm run docs:featuremap`
+
+### Annotation Standard
+Core files (pages/services) may include:
+
+/**
+ * @feature <Feature Name>
+ * @responsibility <What this file owns>
+ * @routes <Route(s) implemented>
+ * @usedBy <Key callers/components>
+ */
+
+This enables Feature → File → Exports mapping without manual documentation drift.

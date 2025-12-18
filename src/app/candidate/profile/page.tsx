@@ -1,189 +1,180 @@
+/**
+ * @feature Candidate Profile
+ * @responsibility Candidate profile creation & update (required before apply)
+ * @routes /candidate/profile
+ * @files src/app/candidate/profile/page.tsx
+ */
+
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { getAuth, onAuthStateChanged, User } from "firebase/auth";
 
-type CandidateProfile = {
-  fullName: string;
-  phone: string;
-  city: string;
-  experienceYears: string;
-  role: string;
-  updatedAt?: any;
-  createdAt?: any;
-};
-
-const emptyProfile: CandidateProfile = {
-  fullName: "",
-  phone: "",
-  city: "",
-  experienceYears: "",
-  role: "candidate",
-};
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import {
+  CandidateProfile,
+  getCandidateProfile,
+  upsertCandidateProfile,
+} from "@/lib/firebase/candidateProfileService";
 
 export default function CandidateProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect") || "/jobs";
+
   const [user, setUser] = useState<User | null>(null);
-  const [form, setForm] = useState<CandidateProfile>(emptyProfile);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // 1) Require login
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [currentLocation, setCurrentLocation] = useState("");
+  const [preferredRoles, setPreferredRoles] = useState(""); // comma-separated
+  const [experienceLevel, setExperienceLevel] =
+    useState<CandidateProfile["experienceLevel"]>("fresher");
+
   useEffect(() => {
+    const auth = getAuth();
     const unsub = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
       if (!u) {
-        router.push("/login"); // if you have /login/candidate later, we’ll switch it
+        router.replace(
+          `/login?redirect=/candidate/profile?redirect=${encodeURIComponent(
+            redirect
+          )}`
+        );
         return;
       }
-      setUser(u);
-      setLoading(false);
 
-      // 2) Load existing profile (if any)
-      try {
-        const ref = doc(db, "users", u.uid);
-        const snap = await getDoc(ref);
-        if (snap.exists()) {
-          const data = snap.data() as any;
-          setForm({
-            fullName: data.fullName ?? "",
-            phone: data.phone ?? "",
-            city: data.city ?? "",
-            experienceYears: data.experienceYears ?? "",
-            role: data.role ?? "candidate",
-          });
-        }
-      } catch (e) {
-        console.error("Failed to load candidate profile", e);
+      // Load existing profile if any
+      const existing = await getCandidateProfile(u.uid);
+      if (existing) {
+        setFullName(existing.fullName || "");
+        setPhone(existing.phone || "");
+        setCurrentLocation(existing.currentLocation || "");
+        setPreferredRoles((existing.preferredRoles || []).join(", "));
+        setExperienceLevel(existing.experienceLevel || "fresher");
       }
+
+      setLoading(false);
     });
 
     return () => unsub();
-  }, [router]);
+  }, [router, redirect]);
 
-  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setForm((p) => ({ ...p, [name]: value }));
-  };
+  if (loading) {
+    return <div className="p-8 text-muted-foreground">Loading profile…</div>;
+  }
 
-  const onSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  async function onSave() {
     if (!user) return;
 
-    if (!form.fullName.trim()) {
-      alert("Full name is required");
-      return;
-    }
+    const name = fullName.trim();
+    const loc = currentLocation.trim();
+    const roles = preferredRoles
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    if (!name) return toast.error("Full name is required.");
+    if (!loc) return toast.error("Current location is required.");
+    if (roles.length === 0)
+      return toast.error("Add at least 1 preferred role.");
 
     setSaving(true);
+    const t = toast.loading("Saving profile…");
     try {
-      const ref = doc(db, "users", user.uid);
-      await setDoc(
-        ref,
-        {
-          ...form,
-          role: "candidate",
-          updatedAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-
-      alert("Profile saved ✅");
-      router.push("/jobs");
-    } catch (e) {
-      console.error("Failed to save candidate profile", e);
-      alert("Could not save profile. Please try again.");
+      await upsertCandidateProfile(user.uid, {
+        fullName: name,
+        phone: phone.trim() || undefined,
+        currentLocation: loc,
+        preferredRoles: roles,
+        experienceLevel,
+      });
+      toast.success("Profile saved.", { id: t });
+      router.push(redirect);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Failed to save profile.", { id: t });
     } finally {
       setSaving(false);
     }
-  };
-
-  if (loading) {
-    return (
-      <main className="flex-1 flex items-center justify-center">
-        <p className="text-sm text-gray-500">Loading profile…</p>
-      </main>
-    );
   }
 
   return (
-    <main className="flex-1 px-4 py-8 md:px-12">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold mb-1">Candidate Profile</h1>
-        <p className="text-sm text-gray-600 mb-6">
-          Create your profile so recruiters can find you.
+    <div className="mx-auto max-w-2xl p-6 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Candidate Profile</h1>
+        <p className="mt-1 text-muted-foreground">
+          Create your profile to apply for jobs.
         </p>
-
-        <form
-          onSubmit={onSave}
-          className="space-y-4 bg-white border border-gray-200 rounded-xl p-6"
-        >
-          <div>
-            <label className="block text-sm font-medium mb-1">Full Name *</label>
-            <input
-              name="fullName"
-              value={form.fullName}
-              onChange={onChange}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="e.g. Krishna Potluri"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Phone</label>
-            <input
-              name="phone"
-              value={form.phone}
-              onChange={onChange}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="e.g. +91 98xxxxxxx"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">City</label>
-            <input
-              name="city"
-              value={form.city}
-              onChange={onChange}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="e.g. Hyderabad"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Experience (years)</label>
-            <input
-              name="experienceYears"
-              value={form.experienceYears}
-              onChange={onChange}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="e.g. 3"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => router.push("/jobs")}
-              className="px-4 py-2 text-sm rounded-lg border border-gray-300 bg-white"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 text-sm rounded-lg bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-60"
-            >
-              {saving ? "Saving..." : "Save Profile"}
-            </button>
-          </div>
-        </form>
       </div>
-    </main>
+
+      <div className="rounded-2xl border bg-white p-6 space-y-4">
+        <div>
+          <label className="text-sm font-medium">Full name *</label>
+          <Input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium">Phone</label>
+          <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium">Current location *</label>
+          <Input
+            value={currentLocation}
+            onChange={(e) => setCurrentLocation(e.target.value)}
+            placeholder="e.g., Vijayawada"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium">Preferred roles *</label>
+          <Input
+            value={preferredRoles}
+            onChange={(e) => setPreferredRoles(e.target.value)}
+            placeholder="e.g., Sales Executive, Delivery, Accountant"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Separate roles with commas.
+          </p>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium">Experience level</label>
+          <select
+            className="mt-1 w-full rounded-md border px-3 py-2"
+            value={experienceLevel}
+            onChange={(e) => setExperienceLevel(e.target.value as any)}
+          >
+            <option value="fresher">Fresher</option>
+            <option value="1-3">1–3 years</option>
+            <option value="3-5">3–5 years</option>
+            <option value="5+">5+ years</option>
+          </select>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={() => router.push(redirect)}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button onClick={onSave} disabled={saving}>
+            {saving ? "Saving…" : "Save profile"}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

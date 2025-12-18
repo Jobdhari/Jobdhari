@@ -1,0 +1,2 @@
+// src/lib/firebase/applicationsService.ts
+export * from "@/lib/firebase/applicationService";

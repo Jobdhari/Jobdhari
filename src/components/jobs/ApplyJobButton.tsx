@@ -1,100 +1,98 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/lib/firebase";
-import {
-  createJobApplication,
-  getUserAppliedJobIds,
-} from "@/lib/firebase/applicationService";
+import { getUserAppliedJobIds } from "@/lib/firebase/applicationService";
 import { Button } from "@/components/ui/button";
 
 type ApplyJobButtonProps = {
   jobId: string;
-  title: string;
-  companyName?: string;
-  location?: string;
-  category?: string;
 };
 
-export default function ApplyJobButton({
-  jobId,
-  title,
-  companyName,
-  location,
-  category,
-}: ApplyJobButtonProps) {
-  const router = useRouter();
-  const [isApplying, setIsApplying] = useState(false);
-  const [hasApplied, setHasApplied] = useState(false);
+export default function ApplyJobButton({ jobId }: ApplyJobButtonProps) {
+  const [alreadyApplied, setAlreadyApplied] = useState(false);
+  const [checking, setChecking] = useState(true);
 
-  // Load whether the current user already applied
+  /* =========================
+     Auto-refresh applied state
+     (fixes post-apply redirect)
+  ========================= */
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged(async (user) => {
+    let alive = true;
+
+    async function refresh(userId: string) {
+      setChecking(true);
+      try {
+        const appliedIds = await getUserAppliedJobIds(userId);
+
+        // 🔍 TEMP DEBUG LOGS
+        console.log("[ApplyJobButton] jobId prop =", jobId);
+        console.log(
+          "[ApplyJobButton] appliedIds =",
+          Array.from(appliedIds)
+        );
+
+        if (!alive) return;
+        setAlreadyApplied(appliedIds.has(jobId));
+      } catch (e) {
+        console.error("Error checking applied jobs", e);
+      } finally {
+        if (alive) setChecking(false);
+      }
+    }
+
+    const unsub = auth.onAuthStateChanged((user) => {
       if (!user) {
-        setHasApplied(false);
+        setAlreadyApplied(false);
+        setChecking(false);
         return;
       }
 
-      try {
-        const appliedIds = await getUserAppliedJobIds(user.uid);
-        setHasApplied(appliedIds.has(jobId));
-      } catch (e) {
-        console.error("Error checking applications", e);
-      }
+      // Initial check
+      refresh(user.uid);
+
+      // Re-check when user comes back to tab or after redirect
+      const onFocus = () => refresh(user.uid);
+      window.addEventListener("focus", onFocus);
+
+      return () => {
+        window.removeEventListener("focus", onFocus);
+      };
     });
 
-    return () => unsub();
+    return () => {
+      alive = false;
+      unsub();
+    };
   }, [jobId]);
 
-  const handleClick = async () => {
-    const user = auth.currentUser;
+  /* =========================
+     UI states
+  ========================= */
+  if (checking) {
+    return (
+      <Button size="sm" disabled>
+        Checking…
+      </Button>
+    );
+  }
 
-    // ───────────────────────────────────────
-    // 1. Not logged in → send to signup
-    // ───────────────────────────────────────
-    if (!user) {
-      const current =
-        window.location.pathname + window.location.search;
-      router.push(
-        `/signup?role=candidate&redirect=${encodeURIComponent(current)}`
-      );
-      return;
-    }
-
-    // Already applied → nothing to do
-    if (hasApplied || isApplying) return;
-
-    // ───────────────────────────────────────
-    // 2. Logged in → create / overwrite application
-    // ───────────────────────────────────────
-    try {
-      setIsApplying(true);
-
-      await createJobApplication(user.uid, {
-        id: jobId,
-        title,
-        companyName,
-        location,
-        category,
-      });
-
-      setHasApplied(true);
-    } catch (e) {
-      console.error("Error applying to job", e);
-    } finally {
-      setIsApplying(false);
-    }
-  };
+  if (alreadyApplied) {
+    return (
+      <Button
+        size="sm"
+        disabled
+        className="bg-green-600 text-white hover:bg-green-600"
+      >
+        Applied
+      </Button>
+    );
+  }
 
   return (
-    <Button
-      size="sm"
-      variant={hasApplied ? "outline" : "default"}
-      onClick={handleClick}
-      disabled={isApplying || hasApplied}
-    >
-      {hasApplied ? "Applied" : isApplying ? "Applying..." : "Apply"}
+    <Button size="sm" asChild>
+      <Link href={`/apply/${jobId}`}>Apply</Link>
     </Button>
   );
 }

@@ -1,10 +1,18 @@
+/**
+ * @feature Public Jobs
+ * @responsibility Job detail view + single-source Apply UX
+ * @routes /jobs/[id]
+ * @files src/app/jobs/[id]/page.tsx
+ */
+
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import ApplyJobButton from "@/components/jobs/ApplyJobButton";
+
 import { getPublicJobById } from "@/lib/firebase/publicJobById";
 import type { PublicJob } from "@/lib/firebase/publicJobsService";
 
@@ -12,14 +20,15 @@ export default function PublicJobDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
 
+  const jobId = params?.id as string;
+
   const [job, setJob] = useState<PublicJob | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const jobId = params?.id;
 
   useEffect(() => {
     (async () => {
       if (!jobId) return;
+
       setLoading(true);
       try {
         const data = await getPublicJobById(jobId);
@@ -32,13 +41,14 @@ export default function PublicJobDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl p-6 space-y-6">
+      {/* Top actions */}
       <div className="flex items-center justify-between gap-4">
         <Button variant="outline" onClick={() => router.back()}>
           Back
         </Button>
-        <Button asChild>
-          <Link href={`/apply/${jobId}`}>Apply</Link>
-        </Button>
+
+        {/* ✅ SINGLE SOURCE OF APPLY UX */}
+        {job && <ApplyJobButton jobId={jobId} />}
       </div>
 
       <div className="rounded-2xl border bg-white p-6">
@@ -69,12 +79,12 @@ export default function PublicJobDetailPage() {
               </p>
             </div>
 
+            {/* Bottom actions */}
             <div className="border-t pt-4 flex gap-2">
-              <Button asChild>
-                <Link href={`/apply/${jobId}`}>Apply</Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link href="/jobs">Back to jobs</Link>
+              <ApplyJobButton jobId={jobId} />
+
+              <Button variant="outline" onClick={() => router.push("/jobs")}>
+                Back to jobs
               </Button>
             </div>
           </div>

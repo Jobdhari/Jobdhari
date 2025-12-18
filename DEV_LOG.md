@@ -451,3 +451,53 @@ Added helper to batch `jobId in [...]` queries in chunks of 10 and aggregate cou
 ## 2025-12-16 08:05 (IST) — MVP decision: job posts are published immediately
 - Default job creation now uses status="open" and isPublished=true
 - Drafts remain available only via explicit employer action
+## 2025-12-16 08:15 (IST) — Candidate discovery foundation shipped
+
+- Added /jobs public listing (open + published jobs)
+- Added /jobs/[id] public job detail page
+- Added /apply/[id] apply gate (login → profile redirect stub)
+- Fixed dynamic routing issue by using [id] folder naming
+- Committed milestone tag: candidate-discovery-v1
+## 2025-12-16 08:55 (IST) — Apply flow end-to-end (profile gate + application create)
+
+- /apply/[id] now checks candidateProfile existence
+- Added applicationsService with duplicate prevention
+- Apply creates applications doc with serverTimestamp appliedAt
+- Updated Firestore rules to allow serverTimestamp for appliedAt (removed request.time equality)
+## 2025-12-17 03:20 (IST) — Jobs page reads hero search params
+
+- Updated /jobs to support URL params: q, loc, exp
+- Added location filter (in-memory) and experience param (reserved)
+- Search button rebuilds URL params consistently (no Firestore query changes)
+## 2025-12-17 03:45 (IST) — Fix Apply build + clarify profile persistence
+
+- Added src/lib/firebase/applicationsService.ts (applyToJob) to resolve missing module import
+- Confirmed candidate profile form likely rehydrates saved profile (edit-mode), not a “clear after save” wizard
+- Verified saved profile location should be checked via candidateProfileService.ts Firestore path
+## 2025-12-17  — Apply flow + responses wiring hardening (IST)
+
+- Fixed inconsistent import naming between `applicationsService` vs `applicationService`.
+- Apply UX: prevent re-applying loops by disabling Apply when already applied and redirecting `/apply/[id]` back to job page when application exists.
+- Employer dashboard: hardened response count fetching by batching `where("jobId", "in", ...)` queries in chunks of 10.
+- Standardized application write contract to use `applications.jobId` = Firestore jobs doc id.
+## 2025-12-17 05:10 (IST) — Apply button state + employer responses list
+
+- Replaced raw Apply links with <ApplyJobButton /> so UI shows “Applied” after applying
+- Added employer responses page: /employer/jobs/[id]/responses
+- Added “View responses” button in employer dashboard to view applicants per job
+## 2025-12-17 05:35 (IST) — Candidate apply UX follow-up (in progress)
+
+- Noted UX gap: Apply toast succeeds but Apply button does not change to “Applied”
+- Plan: verify Apply button uses ApplyJobButton; ensure jobId matches Firestore doc id; add re-check on focus if needed
+- Added FAILURE_LOG.md to track future incidents and avoid repeating past debugging paths
+## 2025-12-17 06:10 (IST) — Apply UX structural fix (auto-apply gate)
+
+- Reworked /apply/[id] to auto-apply when user is logged in + has candidate profile
+- Removed “Ready to apply” double-confirmation UX; now Apply is one-click
+- Apply gate redirects back to /jobs/[id] with success toast
+## 2025-12-17 06:50 (IST) — Feature Map generation system added
+
+- Added `scripts/generate-feature-map.mjs` to scan `src/` and generate `docs/FEATURE_MAP.md`
+- Added npm script: `docs:featuremap`
+- Introduced lightweight `@feature` annotations in key pages/services to map features → files
+- Standardization rule: use consistent feature names across files to avoid duplicate buckets

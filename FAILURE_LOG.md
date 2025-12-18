@@ -344,3 +344,48 @@ Admin SDK dry-run scanned 11 job docs and found:
 
 ### Lesson
 Validate data with a dry-run script before committing to migration. Missing jobs can be caused by Auth/Rules/config, not necessarily data shape.
+# FAILURE_LOG.md
+
+This is a record of incidents, breakages, and confusing behavior.
+Goal: prevent repeating the same debugging paths.
+
+Each entry format:
+- Date+Time (IST)
+- Symptom
+- Root cause
+- Fix
+- Prevention rule
+
+---
+
+## 2025-12-17 (IST) — Apply button not changing to “Applied”
+**Symptom**
+- Candidate successfully applies (toast shown, applications created)
+- Job page still shows “Apply” instead of “Applied”
+
+**Likely root causes**
+- UI uses static `<Link href="/apply/...">` instead of `<ApplyJobButton />`
+- OR jobId mismatch: UI passes jobDhariId but applications store Firestore doc id
+- OR ApplyJobButton only checks once and doesn’t refresh state after apply redirect
+
+**Fix (planned)**
+- Replace static Apply links with `<ApplyJobButton jobId={job.id} />` on jobs list + job detail
+- Ensure public job list returns `id: doc.id`
+- Add a focus-based refresh in ApplyJobButton (MVP-safe)
+
+**Prevention rule**
+- Any “action button with state” must be powered by a single component and never duplicated with raw links.
+## 2025-12-17 06:10 (IST) — Apply felt like two-step / applied state confusing
+**Symptom**
+- Candidate sees “Ready to apply” screen, then applies, then returns to job page still showing “Apply”
+
+**Root cause**
+- /apply/[id] designed as manual confirmation page (2-step flow)
+- Apply state not guaranteed to refresh on return to job page
+
+**Fix**
+- Converted /apply/[id] into auto-apply gate (apply immediately after auth+profile checks)
+- Redirect back to job page after apply with toast
+
+**Prevention rule**
+- User actions should complete in a single click whenever possible (no confirmation pages unless required by policy).
