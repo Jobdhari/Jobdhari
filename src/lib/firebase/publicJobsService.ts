@@ -1,7 +1,7 @@
 /**
  * @feature Public Jobs
  * @responsibility Read-only public job discovery (open + published)
- * @routes /jobs, /
+ * 
  * @files src/lib/firebase/publicJobsService.ts
  */
 

@@ -501,3 +501,8 @@ Added helper to batch `jobId in [...]` queries in chunks of 10 and aggregate cou
 - Added npm script: `docs:featuremap`
 - Introduced lightweight `@feature` annotations in key pages/services to map features → files
 - Standardization rule: use consistent feature names across files to avoid duplicate buckets
+## 2025-12-18 20:25 (IST) — Feature map upgraded (routes + Firestore collection map)
+
+- Updated `scripts/generate-feature-map.mjs` to auto-detect Next.js routes from `src/app/**/page.tsx`
+- Added auto-detection of Firestore collection usage via `collection(db, "<name>")`
+- `docs/FEATURE_MAP.md` now includes: annotated feature buckets + routes map + Firestore collections map + file inventory
