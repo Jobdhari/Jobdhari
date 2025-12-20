@@ -389,3 +389,95 @@ Each entry format:
 
 **Prevention rule**
 - User actions should complete in a single click whenever possible (no confirmation pages unless required by policy).
+## 2025-12-18 21:25 (IST) — Apply UX does not switch to “Applied” after applying
+
+### Symptom
+- After applying, user sees "Application submitted" and can navigate back to job.
+- On `/jobs/[id]` page, Apply still shows as “Apply” instead of “Applied”.
+- UX feels like two-step apply with duplicate CTAs.
+
+### Attempt 1 — Add `?applied=1` on ApplyGate back navigation
+**Change**
+- Updated `src/app/apply/[id]/page.tsx` button:
+  - `router.push(`/jobs/${jobId}?applied=1`)`
+
+**Expected**
+- Job detail page should detect flag and show “Applied”.
+
+**Result**
+- Navigation flag works, but UI still shows “Apply”.
+- Root cause is downstream: `/jobs/[id]` UI (Apply button component) does not read `applied=1` or does not use the correct applied-state service.
+
+### Conclusion
+- ApplyGate is correct and read-only.
+- Fix must be in `ApplyJobButton` and/or `src/app/jobs/[id]/page.tsx` where Apply UI is rendered.
+## Employer dashboard renders blank (header only)
+
+**Date observed:** 2025-12-19  
+**Time (IST):** ~02:30–03:00 AM  
+**Route:** /employer/dashboard  
+
+### Symptom
+Employer dashboard loads the top navigation bar but renders no page content.
+
+### Last known good state
+Dashboard rendered job cards and response counts correctly before recent auth-related refactors.
+
+### Triggering change (most likely)
+Introduction of stricter auth gating logic inside
+`src/app/employer/dashboard/page.tsx`, relying on:
+
+- `getAuth().currentUser` during initial render
+- Early `return null` / `return` when user is not yet available
+- Use of `user.uid` or `fetchedJobs` before variables were defined
+
+### Root cause
+Firebase authentication state is asynchronous.  
+During initial render, `currentUser` is `null`, causing the page component to return no JSX.  
+Because no re-render is triggered, the dashboard stays blank.
+
+### What did NOT fix the issue
+- Verifying `{children}` in `employer/layout.tsx`
+- Replacing layout shells
+- Checking route configuration
+
+### Correct fix
+Gate rendering with `onAuthStateChanged` and an `authReady` flag:
+- Render loading state until auth resolves
+- Render login prompt if not authenticated
+- Only fetch jobs after `employerId` is available
+
+### Prevention
+Never return `null` from a page due to auth state.
+Always render:
+- Loading UI
+- Error UI
+- Empty state UI
+## F-001 — Employer dashboard rendered blank
+
+## F-001 — Employer dashboard rendered blank
+
+**Date:** 2025-12-19  
+**Status:** ✅ Resolved  
+**Resolved in:** DEV-014  
+
+### Symptom
+Employer dashboard loaded header but showed no content area.
+
+### Root Cause
+Layout conflict:
+- `EmployerLayout` / `AppShell` already owned the layout
+- `employer/dashboard/page.tsx` also acted like a layout
+- Nested layout containers caused content collapse
+
+### Fix
+- Removed layout responsibility from dashboard page
+- Page now renders content only
+- Layout ownership enforced at `EmployerLayout`
+
+### Prevention Rule
+Under App Router:
+- Layouts own structure
+- Pages render data + UI only
+- Never nest `<main>` or layout shells in pages
+

@@ -506,3 +506,21 @@ Added helper to batch `jobId in [...]` queries in chunks of 10 and aggregate cou
 - Updated `scripts/generate-feature-map.mjs` to auto-detect Next.js routes from `src/app/**/page.tsx`
 - Added auto-detection of Firestore collection usage via `collection(db, "<name>")`
 - `docs/FEATURE_MAP.md` now includes: annotated feature buckets + routes map + Firestore collections map + file inventory
+## 2025-12-18 21:25 (IST) — ApplyGate navigation carries applied flag
+
+- Updated `src/app/apply/[id]/page.tsx` “Back to job” to redirect to `/jobs/[id]?applied=1` for consistent post-apply UX
+- ApplyGate remains read-only confirmation (no write)
+## DEV-014 — Fix employer dashboard layout rendering
+
+**Date:** 2025-12-19  
+
+### Change
+- Removed layout primitives from employer dashboard page
+- Ensured single layout owner via `EmployerLayout`
+
+### Reason
+Resolved **F-001 (Employer dashboard rendered blank due to layout conflict)**
+
+### Outcome
+Dashboard content now renders consistently on load and refresh.
+
