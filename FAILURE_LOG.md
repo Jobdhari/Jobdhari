@@ -1,3 +1,37 @@
+
+
+# FAILURE LOG
+
+> Purpose:
+> Track engineering failures that caused incorrect behavior, broken UX,
+> data inconsistency, or blocked flows.
+>
+> Rule:
+> - Every failure gets an ID: F-XXX
+> - Every resolved failure must link to a DEV entry
+> - If it never shipped → still log it (future prevention)
+
+---
+
+## Failure Template
+
+## F-XXX — <short failure title>
+
+**Date:** YYYY-MM-DD  
+**Status:** ⛔ Open | ✅ Resolved  
+**Resolved in:** DEV-XXX (only when resolved)
+
+### Symptom
+What the user/dev observed.
+
+### Root Cause
+The *actual* technical reason (not the fix).
+
+### Fix
+What was changed to resolve it.
+
+### Prevention Rule
+One rule to prevent this class of issue again.
 This is a post-mortem log of everything we tried to “fix” employer jobs, why each attempt failed or made things worse, so you do not repeat these paths again.
 
 No advice, no new steps — only what was tried and why it failed.
@@ -480,4 +514,21 @@ Under App Router:
 - Layouts own structure
 - Pages render data + UI only
 - Never nest `<main>` or layout shells in pages
+## F-006 — Failure checker script crashed on unguarded status lines
+
+**Date:** 2025-12-20  
+**Status:** ✅ Resolved  
+**Resolved in:** DEV-006
+
+### Symptom
+`npm run check:failures` crashed with TypeError.
+
+### Root Cause
+Script assumed `Status:` lines always appear after `## F-XXX` headers.
+
+### Fix
+Added guard to ignore status lines until a failure block exists.
+
+### Prevention Rule
+Always defensive-parse human-edited files.
 
