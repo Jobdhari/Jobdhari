@@ -15,7 +15,9 @@
 
 ## Failure Template
 
-## F-XXX — <short failure title>
+## ## FAIL-YYYY-MM-DD-XX — <short failure title>
+
+**Fixed In:** DEV-YYYY-MM-DD-XX
 
 **Date:** YYYY-MM-DD  
 **Status:** ⛔ Open | ✅ Resolved  
@@ -29,6 +31,30 @@ The *actual* technical reason (not the fix).
 
 ### Fix
 What was changed to resolve it.
+## FAIL-2025-12-21-01 — Employer jobs broke due to schema + rules + query changes (multi-attempt recovery)
+
+**Date:** 2025-12-21 21:30 IST  
+**Status:** ✅ Resolved  
+**Fixed In:** DEV-2025-12-21-01
+
+### Symptom
+- Employer dashboard showed no jobs.
+- Posting a job failed (permission denied / blocked writes).
+- Confusing “empty state” even though jobs existed.
+
+### Root Cause
+We attempted rules tightening, schema changes, query field changes, and tooling changes (emulator) without a controlled migration path, causing cascading breakage.
+
+### Fix
+Stabilized by:
+- Standardizing ownership fields used in queries
+- Ensuring job creation writes required fields consistently
+- Avoiding rules conditions that break with serverTimestamp comparisons (or aligning rules with serverTimestamp-safe checks)
+
+### Prevention Rule
+Never tighten rules or change schema/query fields unless:
+1) all existing documents are validated/migrated, and
+2) the change is rolled out in one controlled step.
 
 ### Prevention Rule
 One rule to prevent this class of issue again.
@@ -531,4 +557,96 @@ Added guard to ignore status lines until a failure block exists.
 
 ### Prevention Rule
 Always defensive-parse human-edited files.
+[2025-12-21] Employer dashboard appeared blank
+
+Cause:
+- Page and layout both attempted to control main layout
+- Nested <main> containers collapsed content
+
+Fix:
+- Moved layout responsibility exclusively to EmployerLayout
+- Dashboard page renders content only
+
+Status: RESOLVED
+## FAIL-2025-12-20-03
+
+### Severity
+HIGH
+
+### Status
+RESOLVED
+
+### Area
+Candidate Entry / Profile Flow
+
+### Symptom
+After creating a candidate profile, user was redirected to /jobs instead of dashboard.
+
+### Root Cause
+Profile save handler had hardcoded:
+router.push("/jobs")
+
+This bypassed candidate dashboard flow.
+
+### Fix
+Redirect now follows:
+- ?redirect param if present
+- defaults to /candidate/dashboard
+
+### Fixed In
+DEV-2025-12-21-01
+
+### Prevention Rule
+Never hardcode post-save redirects.
+Always respect redirect param or role dashboard.
+## FAIL-2025-12-21-04
+
+### Severity
+MEDIUM
+
+### Status
+RESOLVED
+
+### Area
+Home Page (src/app/page.tsx)
+
+### Symptom
+Build failed with JSX syntax error: unexpected </Link> token.
+
+### Root Cause
+A closing </Link> tag existed after the component return block, without a matching opening <Link>.
+
+### Fix
+Removed stray </Link>. Ensured no JSX exists after component closing brace.
+
+### Fixed In
+DEV-2025-12-21-02
+
+### Prevention Rule
+Never leave JSX tags outside the component return tree.
+## FAIL-2025-12-21-04
+
+### Severity
+MEDIUM
+
+### Status
+RESOLVED
+
+### Area
+Home Page (src/app/page.tsx)
+
+### Symptom
+Build failed with JSX syntax error: unexpected </Link> token.
+
+### Root Cause
+A closing </Link> tag existed after the component return block, without a matching opening <Link>.
+
+### Fix
+Removed stray </Link>. Ensured no JSX exists after component closing brace.
+
+### Fixed In
+DEV-2025-12-21-02
+
+### Prevention Rule
+Never leave JSX tags outside the component return tree.
 

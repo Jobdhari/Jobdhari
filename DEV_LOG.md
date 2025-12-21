@@ -1,18 +1,70 @@
-# Dev Log
+# DEV LOG
 
-## Day 1 - Firebase Stabilization + Employer Jobs Fix
-- Goal: Single Firebase init + employer dashboard shows employer-posted jobs.
-- Locked decision: All imports from "@/lib/firebase" only.
-- Files changed:
-  - src/lib/firebase.ts
-  - src/app/employer/post-job/page.tsx
-  - src/app/employer/dashboard/page.tsx
-- Replaced imports:
-  - "@/lib/firebase" -> "@/lib/firebase"
-  - "@/lib/firebase" -> "@/lib/firebase"
-- Result:
-  - Employer can post job and see it in employer dashboard.
-## Checkpoint: Firebase + Dashboard/Roles (WIP)
+> Purpose:
+> Record intentional engineering changes and why they were made.
+>
+> Rule:
+> - Every entry has a DEV-XXX ID
+> - If it fixes a failure, reference the failure ID
+> - DEV logs describe *decisions*, not just code
+
+---
+
+## Dev Entry Template
+
+## DEV-YYYY-MM-DD-XX — <short change title>
+
+**Date:** YYYY-MM-DD  
+
+### Change
+What was modified.
+
+### Reason
+Why this change was required (link to failure if applicable).
+
+### Outcome
+What improved or was unblocked.
+## DEV-2025-12-21-01 — Firebase stabilization + employer jobs fix
+
+**Date:** 2025-12-21 22:00 IST  
+**Related Failures:** FAIL-2025-12-21-01
+
+### Change
+- Unified Firebase initialization / usage to a single source of truth.
+- Standardized employer job posting + employer dashboard job listing so posted jobs show correctly.
+- Enforced consistent job ownership fields and queries.
+
+### Files touched
+- src/lib/firebase.ts
+- src/app/employer/post-job/page.tsx
+- src/app/employer/dashboard/page.tsx
+
+### Reason
+Employer dashboard + job posting behavior became inconsistent due to mixed Firebase imports and schema/query mismatches. (See FAIL-2025-12-21-01)
+
+### Outcome
+- Employer can post a job successfully.
+- Employer dashboard reliably shows employer-posted jobs.
+- Reduced import confusion by keeping a single Firebase entry point.
+## DEV-2025-12-21-02 — Checkpoint: dashboard / roles cleanup plan (WIP)
+
+**Date:** 2025-12-21 22:05 IST  
+
+### Change
+No code change — documented the cleanup plan and standards.
+
+### Reason
+We need a durable decision record for remaining cleanup work to prevent repeated regressions.
+
+### Outcome
+Defined remaining tasks:
+- Remove old imports like "@/lib/firebase/auth" and "@/lib/firebase/db"
+- Standardize application service imports (avoid duplicate service naming)
+- Make /dashboard role-aware redirect:
+  - candidate → /candidate/dashboard
+  - employer → /employer/dashboard
+- Sidebar becomes role-aware (no mixed menus)
+
 
 ### Goal
 Unify Firebase imports and stop role/dashboard confusion.
@@ -523,4 +575,112 @@ Resolved **F-001 (Employer dashboard rendered blank due to layout conflict)**
 
 ### Outcome
 Dashboard content now renders consistently on load and refresh.
+## DEV-006 — Harden failure checker parsing
+
+**Date:** 2025-12-20  
+
+### Change
+Added guards in failure log parser to prevent null state crashes.
+
+### Reason
+FAILURE_LOG.md is human-edited and must be parsed defensively.
+
+### Outcome
+Failure checker is now stable and CI-safe.
+## F-005 — Employer dashboard page rendered blank
+
+**Date:** 2025-12-19  
+**Severity:** 🔴 P0  
+**Status:** ✅ Resolved  
+**Resolved in:** DEV-005
+
+### Symptom
+Employer dashboard showed no content.
+
+### Root Cause
+Conflicting layout ownership between AppShell and dashboard page.
+
+### Fix
+Moved layout responsibility fully to EmployerLayout.
+
+### Prevention
+Pages must never own layout containers.
+## DEV-007 — Upgrade failure checker to support severity (P0/P1/P2)
+
+**Date:** 2025-12-20  
+
+### Change
+- Updated `scripts/check-open-failures.mjs` to parse failure severity
+- Script now prints counts by severity and blocks only on open P0
+
+### Reason
+We need a reliable “ship/no-ship” signal without treating all failures equally.
+
+### Outcome
+We can ship confidently when P0=0 while still tracking P1/P2.
+## DEV-008 — Apply UX: reliable applied state + remove duplicate apply CTA
+
+**Date:** 2025-12-20  
+**Time:** 12:00 AM IST
+
+### Changes
+- Added `hasAppliedToJob()` read-only helper in `src/lib/firebase/applicationService.ts`
+- Updated `src/components/jobs/ApplyJobButton.tsx` to use `hasAppliedToJob()` so the button correctly switches to “Applied”
+- Cleaned job detail page to avoid duplicate Apply CTA (kept a single Apply area)
+
+### Outcome
+- After applying, job pages consistently show “Applied”
+- Apply UX is stable and rules-compliant
+## DEV-009 — Apply UX consistency: single application service + Applied state
+
+**Date:** 2025-12-20  
+**Time:** [PUT IST TIME]
+
+### Changes
+- Standardized application logic to use `src/lib/firebase/applicationService.ts` only
+- Added `hasAppliedToJob()` and made `applyToJob()` use it for dedupe
+- Updated `ApplyJobButton` to check applied status using the same service
+
+### Outcome
+- After a successful apply, job detail correctly shows “Applied”
+- Removed risk of split-brain between `applicationService` vs `applicationsService`
+Employer Responses View
+- Added /employer/jobs/[id]/responses page
+- Displays applicants with profile data
+- Wired from dashboard “View responses” CTA
+- Verified application → dashboard → responses flow
+## DEV-2025-12-21-01 (21 Dec 2025, 22:10 IST)
+
+### Change
+Candidate entry flow corrected:
+- Home CTA routes through login gate
+- Profile save redirects to candidate dashboard
+
+### Reason
+Candidate profile creation was allowing anonymous access and redirecting incorrectly.
+
+### Related Failures
+- FAIL-2025-12-20-03
+
+### Impact
+- Enforces auth-first flow
+- Aligns candidate UX with employer UX
+## DEV-2025-12-21-02 (21 Dec 2025, __:__ IST)
+
+### Change
+Fixed Home page JSX structure by removing stray </Link> tag.
+
+### Reason
+Build failed due to invalid JSX tree after recent CTA edits.
+
+### Impact
+- Home page compiles correctly
+- Restores stable build
+
+### Reason
+Build failed due to invalid JSX tree after recent CTA edits.
+
+### Impact
+- Home page compiles correctly
+- Restores stable build
 
