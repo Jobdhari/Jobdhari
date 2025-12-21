@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+set -e
+
+echo "🔎 JobDhari pre-commit checks..."
+
+npm run check:repo
+
+echo "✅ Pre-commit checks passed."
