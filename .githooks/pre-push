@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+set -e
+
+echo "🚀 JobDhari pre-push checks..."
+
+npm run check:repo
+npm run build
+
+echo "✅ Pre-push checks passed."
