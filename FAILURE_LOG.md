@@ -1,64 +1,33 @@
-
-
 # FAILURE LOG
-
 > Purpose:
 > Track engineering failures that caused incorrect behavior, broken UX,
 > data inconsistency, or blocked flows.
 >
-> Rule:
-> - Every failure gets an ID: F-XXX
-> - Every resolved failure must link to a DEV entry
-> - If it never shipped → still log it (future prevention)
-
----
+> > Rule:
+> - Every failure gets an ID: FAIL-YYYY-MM-DD-XX
+> - Every resolved failure must link to a DEV entry (DEV-YYYY-MM-DD-XX)
+> - Failures are never deleted, only marked Resolved
+> - Even unshipped failures must be logged (future prevention)
 
 ## Failure Template
 
-## ## FAIL-YYYY-MM-DD-XX — <short failure title>
-
-**Fixed In:** DEV-YYYY-MM-DD-XX
+## FAIL-YYYY-MM-DD-XX — <short failure title>
 
 **Date:** YYYY-MM-DD  
 **Status:** ⛔ Open | ✅ Resolved  
-**Resolved in:** DEV-XXX (only when resolved)
+**Fixed In:** DEV-YYYY-MM-DD-XX (only when resolved)
 
 ### Symptom
 What the user/dev observed.
 
 ### Root Cause
-The *actual* technical reason (not the fix).
+The actual technical reason (not the fix).
 
 ### Fix
 What was changed to resolve it.
-## FAIL-2025-12-21-01 — Employer jobs broke due to schema + rules + query changes (multi-attempt recovery)
-
-**Date:** 2025-12-21 21:30 IST  
-**Status:** ✅ Resolved  
-**Fixed In:** DEV-2025-12-21-01
-
-### Symptom
-- Employer dashboard showed no jobs.
-- Posting a job failed (permission denied / blocked writes).
-- Confusing “empty state” even though jobs existed.
-
-### Root Cause
-We attempted rules tightening, schema changes, query field changes, and tooling changes (emulator) without a controlled migration path, causing cascading breakage.
-
-### Fix
-Stabilized by:
-- Standardizing ownership fields used in queries
-- Ensuring job creation writes required fields consistently
-- Avoiding rules conditions that break with serverTimestamp comparisons (or aligning rules with serverTimestamp-safe checks)
 
 ### Prevention Rule
-Never tighten rules or change schema/query fields unless:
-1) all existing documents are validated/migrated, and
-2) the change is rolled out in one controlled step.
-
-### Prevention Rule
-One rule to prevent this class of issue again.
-This is a post-mortem log of everything we tried to “fix” employer jobs, why each attempt failed or made things worse, so you do not repeat these paths again.
+One rule to prevent this class of failure again.
 
 No advice, no new steps — only what was tried and why it failed.
 
@@ -649,4 +618,33 @@ DEV-2025-12-21-02
 
 ### Prevention Rule
 Never leave JSX tags outside the component return tree.
+## FAIL-2025-12-21-01 — Employer jobs broke due to schema + rules + query changes (multi-attempt recovery)
+
+**Date:** 2025-12-21  
+**Status:** ✅ Resolved  
+**Fixed In:** DEV-2025-12-21-01
+
+### Symptom
+- Employer dashboard showed no jobs
+- Posting a job failed with permission-denied errors
+- Jobs existed in Firestore but did not render
+- Multiple UI paths appeared broken or empty
+
+### Root Cause
+Multiple uncoordinated changes were applied:
+- Firestore rules tightened before validating existing documents
+- Job schema fields were renamed/assumed inconsistently
+- Queries relied on fields not present in older job documents
+- Server timestamp comparisons conflicted with strict rules
+
+### Fix
+- Standardized job ownership fields
+- Relaxed rule conditions to be serverTimestamp-safe
+- Aligned queries with actual stored schema
+- Stabilized Firebase import and usage paths
+
+### Prevention Rule
+Never tighten Firestore rules or change schema/query fields without:
+1) validating existing documents, and  
+2) recording the change as a DEV entry before implementation.
 
