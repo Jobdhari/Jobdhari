@@ -683,4 +683,37 @@ Build failed due to invalid JSX tree after recent CTA edits.
 ### Impact
 - Home page compiles correctly
 - Restores stable build
+DEV-2025-12-22-01 — Build stabilization: App Router, Firebase, and TypeScript fixes
 
+Date: 2025-12-22
+Related Failures:
+
+FAIL-2025-12-21-01 (production build blocked by multiple structural errors)
+
+Change
+
+Resolved multiple build-blocking issues related to Next.js App Router usage, Firebase initialization, import resolution, and TypeScript strictness.
+
+Details
+
+Corrected client-only logic usage (useRouter, useSearchParams, Firebase) by isolating it to client-safe contexts or marking routes as dynamic.
+
+Fixed improper "use client" directive placement that caused compilation failures.
+
+Centralized Firebase initialization and removed Firebase execution from static prerender paths.
+
+Resolved path alias and missing export issues across @/lib and @/components.
+
+Fixed UI component contract mismatches (Button variants, sizes, and unsupported props).
+
+Cleaned up TypeScript errors caused by incorrect data assumptions and missing exports.
+
+Outcome
+
+next build now completes successfully.
+
+Pre-push build gate passes.
+
+Application is production build–safe and deployable.
+
+Structural issues are resolved at root cause level, not masked.
