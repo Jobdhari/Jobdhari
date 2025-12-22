@@ -1,94 +1,71 @@
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
 
-const FILE = path.join(process.cwd(), "FAILURE_LOG.md");
+const FILE = "FAILURE_LOG.md";
 
 if (!fs.existsSync(FILE)) {
-  console.error("❌ FAILURE_LOG.md not found");
-  process.exit(1);
+  console.log(`⚠️ ${FILE} not found. Skipping.`);
+  process.exit(0);
 }
 
-const content = fs.readFileSync(FILE, "utf8");
-const lines = content.split("\n");
+const text = fs.readFileSync(FILE, "utf8");
+const lines = text.split(/\r?\n/);
 
-// Track open failures by severity
-const open = {
-  P0: [],
-  P1: [],
-  P2: [],
-  UNKNOWN: [],
-};
+const failIdRe = /^##\s+(FAIL-\d{4}-\d{2}-\d{2}-\d{2})\s+—\s+(.+)$/;
+const statusRe = /^\*\*Status:\*\*\s+(⛔\s*Open|✅\s*Resolved)\b/;
+const fixedInRe = /^\*\*Fixed In:\*\*\s+(DEV-\d{4}-\d{2}-\d{2}-\d{2})\b/;
 
 let current = null;
-
-function pushIfOpen(block) {
-  if (!block) return;
-  if (block.status !== "OPEN") return;
-
-  const sev = block.severity || "UNKNOWN";
-  if (sev === "P0") open.P0.push(block);
-  else if (sev === "P1") open.P1.push(block);
-  else if (sev === "P2") open.P2.push(block);
-  else open.UNKNOWN.push(block);
-}
+const items = [];
 
 for (const line of lines) {
-  // New failure block
-  const idMatch = line.match(/^## (F-\d+)/);
-  if (idMatch) {
-    pushIfOpen(current);
-    current = { id: idMatch[1], status: "UNKNOWN", severity: "UNKNOWN" };
+  const mId = line.match(failIdRe);
+  if (mId) {
+    if (current) items.push(current);
+    current = {
+      id: mId[1],
+      title: mId[2].trim(),
+      status: null,
+      fixedIn: null,
+    };
     continue;
   }
 
-  // Ignore anything until first failure header
   if (!current) continue;
 
-  // Status parse
-  if (line.includes("Status:")) {
-    if (line.includes("⛔ Open")) current.status = "OPEN";
-    if (line.includes("✅ Resolved")) current.status = "RESOLVED";
+  const mStatus = line.match(statusRe);
+  if (mStatus) {
+    current.status = mStatus[1].includes("Open") ? "OPEN" : "RESOLVED";
+    continue;
   }
 
-  // Severity parse (supports: "Severity: 🔴 P0" OR "Severity: P0")
-  if (line.includes("Severity:")) {
-    const m = line.match(/\bP0\b|\bP1\b|\bP2\b/);
-    if (m) current.severity = m[0];
+  const mFixed = line.match(fixedInRe);
+  if (mFixed) {
+    current.fixedIn = mFixed[1];
+    continue;
   }
 }
 
-// Final block
-pushIfOpen(current);
+if (current) items.push(current);
 
-// Summary
-const p0 = open.P0.length;
-const p1 = open.P1.length;
-const p2 = open.P2.length;
-const unk = open.UNKNOWN.length;
+const open = items.filter((x) => x.status === "OPEN");
+const resolvedMissingLink = items.filter(
+  (x) => x.status === "RESOLVED" && !x.fixedIn
+);
 
-console.log("📌 Open failures summary");
-console.log(`P0: ${p0}`);
-console.log(`P1: ${p1}`);
-console.log(`P2: ${p2}`);
-if (unk) console.log(`UNKNOWN: ${unk}`);
-
-function printList(label, arr) {
-  if (arr.length === 0) return;
-  console.log(`\n${label}`);
-  for (const f of arr) console.log(` - ${f.id}`);
+if (open.length === 0 && resolvedMissingLink.length === 0) {
+  console.log("✅ Failure log check: OK (no open failures + resolved have Fixed In).");
+  process.exit(0);
 }
 
-// Print details
-printList("🔴 Open P0 failures (release blockers):", open.P0);
-printList("🟠 Open P1 failures:", open.P1);
-printList("🟡 Open P2 failures:", open.P2);
-printList("⚪ Open UNKNOWN severity failures:", open.UNKNOWN);
-
-// Exit rule
-if (p0 > 0) {
-  console.log("\n⛔ NOT SAFE TO SHIP: open P0 failures exist.");
-  process.exitCode = 1;
-} else {
-  console.log("\n✅ Safe to ship (no open P0 failures).");
-  process.exitCode = 0;
+if (open.length) {
+  console.log("\n⛔ Open failures detected:");
+  for (const f of open) console.log(`- ${f.id} — ${f.title}`);
 }
+
+if (resolvedMissingLink.length) {
+  console.log("\n⛔ Resolved failures missing **Fixed In:**");
+  for (const f of resolvedMissingLink) console.log(`- ${f.id} — ${f.title}`);
+}
+
+console.log("\nFix FAILURE_LOG.md before committing.");
+process.exit(1);
