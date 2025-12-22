@@ -1,36 +1,30 @@
-import { auth, db } from "@/lib/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+// src/app/candidate/applications/page.tsx
+"use client";
 
-export default async function CandidateApplicationsPage() {
-  const user = auth.currentUser;
-  if (!user) return <p>Not logged in</p>;
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
-  const q = query(collection(db, "applications"), where("candidateId", "==", user.uid));
-  const snap = await getDocs(q);
-
-  const apps = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
+/**
+ * Non-MVP stub
+ * Candidate application tracking UI is not in MVP.
+ * MVP apply flow works via /apply/[id].
+ */
+export default function CandidateApplicationsStubPage() {
   return (
-    <div className="p-5 space-y-4">
-      <h1 className="text-2xl font-semibold">My Applications</h1>
+    <div className="mx-auto max-w-2xl p-8 space-y-4">
+      <h1 className="text-2xl font-bold">My Applications</h1>
+      <p className="text-muted-foreground">
+        This page is disabled in MVP. You can still apply to jobs from the Jobs page.
+      </p>
 
-      {apps.map((app) => (
-        <div key={app.id} className="p-4 border rounded-lg shadow-sm bg-white">
-          <p><b>Job ID:</b> {app.jobId}</p>
-          <p><b>Status:</b> {app.status}</p>
-          <p><b>Applied At:</b> {app.appliedAt}</p>
-
-          {app.resumeURL && (
-            <a
-              href={app.resumeURL}
-              target="_blank"
-              className="text-blue-600 underline"
-            >
-              View Resume
-            </a>
-          )}
-        </div>
-      ))}
+      <div className="flex gap-2">
+        <Button asChild>
+          <Link href="/jobs">Browse jobs</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link href="/candidate/dashboard">Candidate dashboard</Link>
+        </Button>
+      </div>
     </div>
   );
 }

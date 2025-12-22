@@ -46,9 +46,6 @@ export default function PublicJobDetailPage() {
         <Button variant="outline" onClick={() => router.back()}>
           Back
         </Button>
-
-        {/* ✅ SINGLE SOURCE OF APPLY UX */}
-        {job && <ApplyJobButton jobId={jobId} />}
       </div>
 
       <div className="rounded-2xl border bg-white p-6">
@@ -79,7 +76,7 @@ export default function PublicJobDetailPage() {
               </p>
             </div>
 
-            {/* Bottom actions */}
+            {/* ✅ SINGLE Apply CTA (only one) */}
             <div className="border-t pt-4 flex gap-2">
               <ApplyJobButton jobId={jobId} />
 

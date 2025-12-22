@@ -1,193 +1,107 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  getAuth,
   createUserWithEmailAndPassword,
   sendEmailVerification,
-  onAuthStateChanged,
 } from "firebase/auth";
 import {
-  getFirestore,
   doc,
   setDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { app } from "@/lib/firebase";
-import { Loader2 } from "lucide-react";
+import { auth, db } from "@/lib/firebase";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export default function EmployerSignupPage() {
   const router = useRouter();
-  const auth = getAuth(app);
-  const db = getFirestore(app);
 
-  const [checking, setChecking] = useState(true);
-  const [user, setUser] = useState<any>(null);
-  const [form, setForm] = useState({
-    companyName: "",
-    email: "",
-    password: "",
-  });
-  const [error, setError] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
 
-  // ✅ Check if already logged in
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setChecking(false);
-      if (currentUser) {
-        // redirect only after render phase
-        setTimeout(() => router.replace("/employer/post-job"), 0);
-      }
-    });
-    return () => unsubscribe();
-  }, [auth, router]);
-
-  if (checking) {
-    return (
-      <div className="flex items-center justify-center h-screen text-gray-600">
-        Checking session...
-      </div>
-    );
-  }
-
-  // ✅ Handle input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  // ✅ Handle signup
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
 
+    if (!companyName || !email || !password) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+
+    setLoading(true);
     try {
       const userCred = await createUserWithEmailAndPassword(
         auth,
-        form.email,
-        form.password
+        email,
+        password
       );
-      const user = userCred.user;
 
-      // Send verification mail
-      await sendEmailVerification(user);
-
-      // Save employer data with role
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        email: form.email.toLowerCase(),
-        companyName: form.companyName,
+      await setDoc(doc(db, "users", userCred.user.uid), {
+        email,
         role: "employer",
+        companyName,
         createdAt: serverTimestamp(),
       });
 
-      setSuccess(true);
-      setTimeout(() => router.replace("/login/employer"), 2000);
+      await sendEmailVerification(userCred.user);
+
+      toast.success("Account created. Please verify your email.");
+      router.push("/login?role=employer");
     } catch (err: any) {
-      console.error("Signup Error:", err);
-      if (err.code === "auth/email-already-in-use")
-        setError("Email already registered.");
-      else if (err.code === "auth/invalid-email")
-        setError("Invalid email address.");
-      else if (err.code === "auth/weak-password")
-        setError("Password too weak (min 6 characters).");
-      else setError("Something went wrong. Try again later.");
+      toast.error(err?.message || "Signup failed");
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ If already logged in
-  if (user) return null;
-
-  // ✅ Signup Form UI
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-      <div className="w-full max-w-md p-6 bg-white rounded-xl shadow-md">
-        <h1 className="text-2xl font-semibold text-center text-gray-800 mb-4">
-          Employer Signup
-        </h1>
+    <div className="flex min-h-[80vh] items-center justify-center px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Employer Signup</CardTitle>
+        </CardHeader>
 
-        <form onSubmit={handleSignup} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Company Name
-            </label>
-            <input
-              type="text"
-              name="companyName"
-              value={form.companyName}
-              onChange={handleChange}
+        <CardContent>
+          <form onSubmit={handleSignup} className="space-y-4">
+            <Input
+              placeholder="Company name"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
               required
-              className="w-full border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
+            <Input
               type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
+              placeholder="Work email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
+            <Input
               type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full border-gray-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
-          </div>
 
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          {success && (
-            <p className="text-green-600 text-sm text-center">
-              ✅ Signup successful! Please verify your email.
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-orange-600 text-white rounded-md py-2 font-medium hover:bg-orange-700 transition disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="inline mr-2 h-4 w-4 animate-spin" />
-                Creating Account...
-              </>
-            ) : (
-              "Sign Up"
-            )}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-gray-600 mt-4">
-          Already have an account?{" "}
-          <a
-            href="/login/employer"
-            className="text-orange-600 hover:underline"
-          >
-            Login
-          </a>
-        </p>
-      </div>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-60"
+            >
+              {loading ? "Creating account…" : "Create Account"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

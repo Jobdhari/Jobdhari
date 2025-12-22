@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { getPublicJobById } from "@/lib/firebase/publicJobById";
 import type { PublicJob } from "@/lib/firebase/publicJobsService";
 import { getCandidateProfile } from "@/lib/firebase/candidateProfileService";
-import { hasAppliedToJob } from "@/lib/firebase/applicationService";
 
 export default function ApplyGatePage() {
   const params = useParams<{ id: string }>();
@@ -126,7 +125,8 @@ export default function ApplyGatePage() {
         </span>.
       </p>
 
-      <Button onClick={() => router.push(`/jobs/${jobId}`)}>
+      {/* ✅ ONLY CHANGE IS HERE */}
+      <Button onClick={() => router.push(`/jobs/${jobId}?applied=1`)}>
         Back to job
       </Button>
     </div>

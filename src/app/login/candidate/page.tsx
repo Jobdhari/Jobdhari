@@ -1,125 +1,77 @@
 "use client";
+export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { getAuth, signInWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
-import { app } from "@/lib/firebase";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  sendEmailVerification,
+} from "firebase/auth";
 
 export default function CandidateLogin() {
   const router = useRouter();
-  const auth = getAuth(app);
+  const auth = getAuth(); // uses already-initialized Firebase app
 
-  const [mounted, setMounted] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // ✅ Prevent React hydration errors
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+  const handleLogin = async () => {
     setLoading(true);
+    setError(null);
 
     try {
-      const userCred = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCred.user;
+      const result = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
 
-      if (!user.emailVerified) {
-        await sendEmailVerification(user);
-        alert("Please verify your email before login. A new verification link was sent.");
+      if (!result.user.emailVerified) {
+        await sendEmailVerification(result.user);
+        setError("Please verify your email. Verification link sent.");
         return;
       }
 
-      alert("Login successful!");
-      router.push("/candidate/profile"); // redirect to candidate dashboard or profile
+      router.push("/jobs");
     } catch (err: any) {
-      console.error("Login error:", err.code);
-      if (err.code === "auth/user-not-found") setError("No account found. Please sign up first.");
-      else if (err.code === "auth/wrong-password") setError("Incorrect password. Try again.");
-      else if (err.code === "auth/invalid-email") setError("Enter a valid email address.");
-      else setError("Something went wrong. Please try again.");
+      setError(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
   };
 
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "10px",
-    border: "1px solid #aaa",
-    borderRadius: "6px",
-    marginBottom: "10px",
-  };
-
   return (
-    <div
-      style={{
-        maxWidth: "400px",
-        margin: "60px auto",
-        padding: "24px",
-        border: "1px solid #ccc",
-        borderRadius: "12px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-        background: "#fff",
-      }}
-    >
-      <h2 style={{ textAlign: "center", marginBottom: "20px" }}>Candidate Login</h2>
+    <div className="mx-auto max-w-md p-6 space-y-4">
+      <h1 className="text-2xl font-bold">Candidate Login</h1>
 
-      <form onSubmit={handleLogin}>
-        <label style={{ display: "block", marginBottom: "6px" }}>Email</label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="your@email.com"
-          style={inputStyle}
-          required
-        />
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <label style={{ display: "block", marginBottom: "6px" }}>Password</label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Enter password"
-          style={inputStyle}
-          required
-        />
+      <input
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        className="w-full rounded-md border p-2"
+      />
 
-        {error && (
-          <p style={{ color: "red", fontSize: 14, marginTop: 4, marginBottom: 10 }}>
-            {error}
-          </p>
-        )}
+      <input
+        type="password"
+        placeholder="Password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        className="w-full rounded-md border p-2"
+      />
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            width: "100%",
-            backgroundColor: "#e45b00",
-            color: "white",
-            padding: "12px",
-            border: "none",
-            borderRadius: "6px",
-            cursor: loading ? "not-allowed" : "pointer",
-            fontWeight: 600,
-          }}
-        >
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
-
-      <p style={{ textAlign: "center", marginTop: 14 }}>
-        Don’t have an account?{" "}
-        <a href="/signup/candidate" style={{ color: "#e45b00" }}>
-          Sign up here
-        </a>
-      </p>
+      <button
+        onClick={handleLogin}
+        disabled={loading}
+        className="w-full rounded-md bg-orange-500 py-2 text-white hover:bg-orange-600 disabled:opacity-60"
+      >
+        {loading ? "Logging in…" : "Login"}
+      </button>
     </div>
   );
 }

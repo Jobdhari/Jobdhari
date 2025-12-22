@@ -1,46 +1,56 @@
-// src/app/candidate/page.tsx
+/**
+ * @feature Candidate Entry
+ * @responsibility One entry page for candidate. Decides where to go.
+ * @routes /candidate
+ * @files src/app/candidate/page.tsx
+ */
+
+
 "use client";
 
-import { useAuthState } from "react-firebase-hooks/auth";
-import { auth } from "@/lib/firebase";
-import CandidateProfileForm from "@/components/candidate/CandidateProfileForm";
-import ResumeUploader from "@/components/candidate/ResumeUploader";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getCandidateProfile } from "@/lib/firebase/candidateProfileService";
 
-export default function CandidatePage() {
-  const [user, loading] = useAuthState(auth);
+/**
+ * @feature Candidate Entry
+ * @responsibility One entry page for candidate. Decides where to go.
+ * @routes /candidate
+ * @files src/app/candidate/page.tsx
+ */
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-sm text-gray-500">Checking login…</p>
-      </div>
-    );
-  }
+export default function CandidateEntryPage() {
+  const router = useRouter();
+  const auth = getAuth();
 
-  if (!user) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-sm text-red-600">
-          Please log in as a candidate to access this page.
-        </p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      // 1) Not logged in → login first, come back to /candidate
+      if (!user) {
+        router.replace("/login?redirect=/candidate");
+        return;
+      }
+
+      // 2) Logged in → check profile
+      const profile = await getCandidateProfile(user.uid);
+
+      // 3) No profile → force profile creation
+      if (!profile) {
+        router.replace("/candidate/profile?redirect=/candidate/dashboard");
+        return;
+      }
+
+      // 4) Profile exists → dashboard
+      router.replace("/candidate/dashboard");
+    });
+
+    return () => unsub();
+  }, [auth, router]);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 py-8">
-      <header>
-        <h1 className="text-2xl font-semibold text-gray-900">
-          Candidate Dashboard
-        </h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Keep your profile and resume updated so recruiters on JobDhari
-          can find you for the best roles.
-        </p>
-      </header>
-
-      <CandidateProfileForm userId={user.uid} />
-      <ResumeUploader userId={user.uid} />
+    <div className="p-8 text-muted-foreground">
+      Loading candidate workspace…
     </div>
   );
 }

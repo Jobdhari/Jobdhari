@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { updateJobStatus } from "@/lib/updateJobStatus";
 
+type JobStatus = "open" | "closed" | "draft";
+
 type Job = {
   id: string;
   title: string;
@@ -18,7 +20,7 @@ type Job = {
   workMode?: string;
   experience?: string;
   salary?: string;
-  status?: string;
+  status: JobStatus;
   createdAt?: any;
 };
 
@@ -28,7 +30,9 @@ export default function EmployerJobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 1) Watch auth and get employer UID
+  /* =========================
+     Auth
+  ========================= */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (!user) {
@@ -42,22 +46,28 @@ export default function EmployerJobsPage() {
     return () => unsub();
   }, [router]);
 
-  // 2) Load jobs created by this employer
+  /* =========================
+     Load jobs
+  ========================= */
   useEffect(() => {
     if (!userId) return;
 
     const loadJobs = async () => {
       try {
-        const jobsRef = collection(db, "jobs");
         const q = query(
-          jobsRef,
+          collection(db, "jobs"),
           where("employerId", "==", userId),
           orderBy("createdAt", "desc")
         );
 
         const snap = await getDocs(q);
+
         const list: Job[] = snap.docs.map((doc) => {
           const data = doc.data() as any;
+
+          const normalizedStatus =
+            String(data.status || "open").toLowerCase() as JobStatus;
+
           return {
             id: doc.id,
             title: data.title || "Untitled Role",
@@ -66,7 +76,7 @@ export default function EmployerJobsPage() {
             workMode: data.workMode || data.mode || "Not specified",
             experience: data.experience || "Not specified",
             salary: data.salary || "Not specified",
-            status: data.status || "Open",
+            status: normalizedStatus,
             createdAt: data.createdAt,
           };
         });
@@ -91,25 +101,28 @@ export default function EmployerJobsPage() {
     );
   }
 
-  // Status badge style
-  function statusBadge(status: string) {
+  /* =========================
+     UI helpers
+  ========================= */
+  function statusBadge(status: JobStatus) {
+    const label = status === "closed" ? "Closed" : "Open";
+
     return (
       <span
         className={`inline-flex mt-1 px-2 py-0.5 rounded-full text-xs font-medium 
           ${
-            status === "Closed"
+            status === "closed"
               ? "bg-red-100 text-red-700 border border-red-300"
               : "bg-green-100 text-green-700 border border-green-300"
           }`}
       >
-        {status}
+        {label}
       </span>
     );
   }
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-6">
-      
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-800">My Jobs</h1>
         <Button onClick={() => router.push("/employer/post-job")}>
@@ -125,24 +138,24 @@ export default function EmployerJobsPage() {
         {jobs.map((job) => (
           <Card
             key={job.id}
-            className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 
-                   border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
+            className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border border-gray-200 shadow-sm"
           >
             <div className="space-y-1">
-              <h2 className="text-lg font-semibold text-gray-800">{job.title}</h2>
+              <h2 className="text-lg font-semibold text-gray-800">
+                {job.title}
+              </h2>
               <p className="text-sm text-gray-500">
                 {job.company} • {job.location}
               </p>
               <p className="text-xs text-gray-400">
-                Mode: {job.workMode} • Experience: {job.experience} • Salary: {job.salary}
+                Mode: {job.workMode} • Experience: {job.experience} • Salary:{" "}
+                {job.salary}
               </p>
 
-              {statusBadge(job.status || "Open")}
+              {statusBadge(job.status)}
             </div>
 
-            {/* ACTION BUTTONS */}
             <div className="flex flex-wrap gap-2 justify-start sm:justify-end">
-              
               <Button
                 variant="outline"
                 size="sm"
@@ -154,33 +167,38 @@ export default function EmployerJobsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => router.push(`/employer/jobs/${job.id}/applications`)}
+                onClick={() =>
+                  router.push(`/employer/jobs/${job.id}/applications`)
+                }
               >
                 View Applications
               </Button>
 
-              {/* STATUS TOGGLE BUTTON */}
               <Button
                 size="sm"
-                variant={job.status === "Closed" ? "default" : "destructive"}
+                variant={job.status === "closed" ? "default" : "destructive"}
                 onClick={async () => {
-                  const newStatus = job.status === "Closed" ? "Open" : "Closed";
+                  const current = job.status;
+                  const newStatus: JobStatus =
+                    current === "closed" ? "open" : "closed";
 
                   await updateJobStatus(job.id, newStatus);
 
-                  // Update UI instantly
                   setJobs((prev) =>
                     prev.map((j) =>
                       j.id === job.id ? { ...j, status: newStatus } : j
                     )
                   );
 
-                  toast.success(`Job marked as ${newStatus}`);
+                  toast.success(
+                    `Job marked as ${
+                      newStatus === "closed" ? "Closed" : "Open"
+                    }`
+                  );
                 }}
               >
-                {job.status === "Closed" ? "Reopen Job" : "Close Job"}
+                {job.status === "closed" ? "Reopen Job" : "Close Job"}
               </Button>
-
             </div>
           </Card>
         ))}

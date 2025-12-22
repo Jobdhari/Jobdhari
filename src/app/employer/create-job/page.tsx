@@ -1,29 +1,27 @@
+// src/app/employer/create-job/page.tsx
 "use client";
 
-import { useAuthState } from "react-firebase-hooks/auth";
-import { auth } from "@/lib/firebase";      // wherever your auth is
-import { createJob, JobFormValues } from "@/lib/firebase/jobService";
-import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
-// ...
+/**
+ * Non-MVP route stub
+ * This page exists only to keep build green.
+ * Use /employer/post-job for MVP job creation.
+ */
+export default function EmployerCreateJobStubPage() {
+  const router = useRouter();
 
-const [user] = useAuthState(auth);
+  return (
+    <div className="p-8 max-w-xl space-y-4">
+      <h1 className="text-2xl font-bold">Create Job</h1>
+      <p className="text-muted-foreground">
+        This page is not used in MVP. Please use the Employer dashboard to post a job.
+      </p>
 
-// This is the handler you pass to JobForm
-async function onSubmit(values: JobFormValues) {
-  if (!user) {
-    toast.error("Please log in as an employer to post a job.");
-    return;
-  }
-
-  try {
-    await createJob(values, user.uid);
-    toast.success("Job created successfully!");
-    // optional: redirect to /employer/my-jobs
-  } catch (error: unknown) {
-    console.error("onSubmit error:", error);
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    toast.error(`Could not create job: ${message}`);
-  }
+      <Button onClick={() => router.push("/employer/post-job")}>
+        Go to Post Job
+      </Button>
+    </div>
+  );
 }

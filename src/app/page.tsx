@@ -7,6 +7,12 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
+/**
+ * @feature Public Jobs Browse
+ * @responsibility Public home hero + search entry into /jobs
+ * @routes /
+ * @files src/app/page.tsx
+ */
 export default function HomePage() {
   const router = useRouter();
 
@@ -87,13 +93,20 @@ export default function HomePage() {
             <span className="font-medium text-foreground">Sales</span>
           </div>
 
-          {/* 👇 Existing CTA buttons preserved */}
+          {/* CTAs */}
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             <Link
               href="/jobs"
               className="inline-flex items-center justify-center rounded-lg bg-orange-500 px-6 py-3 text-sm font-semibold text-white hover:bg-orange-600"
             >
               Browse Jobs
+            </Link>
+
+            <Link
+              href="/login?role=candidate&redirect=/candidate"
+              className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-50"
+            >
+              Candidate Login / Create Profile
             </Link>
 
             <Link

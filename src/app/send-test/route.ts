@@ -1,24 +1,20 @@
-import { sendWhatsApp } from "@/lib/twilio";
+// src/app/api/send-test/route.ts
 import { NextResponse } from "next/server";
 
+/**
+ * Non-MVP: Twilio test API disabled.
+ * Keeps production build stable without installing twilio.
+ */
 export async function GET() {
-  try {
-    const myNumber = "+919030452252"; // replace with your WhatsApp number
+  return NextResponse.json(
+    { ok: false, message: "send-test API disabled in MVP build." },
+    { status: 410 }
+  );
+}
 
-    await sendWhatsApp(
-      myNumber,
-      "Hello Krishna 👋 — Jobdhari WhatsApp integration test successful!"
-    );
-
-    return NextResponse.json({
-      success: true,
-      message: "WhatsApp sent successfully!",
-    });
-  } catch (error: any) {
-    console.error("Error sending WhatsApp:", error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
-  }
+export async function POST() {
+  return NextResponse.json(
+    { ok: false, message: "send-test API disabled in MVP build." },
+    { status: 410 }
+  );
 }
