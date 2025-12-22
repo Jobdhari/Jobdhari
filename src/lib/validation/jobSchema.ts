@@ -1,61 +1,40 @@
 // src/lib/validation/jobSchema.ts
+
 import { z } from "zod";
 
-export const jobFormSchema = z.object({
-  // Basic details
-  title: z.string().min(3, "Job title is required"),
-  company: z.string().min(1, "Company is required"),
-  category: z.string().optional().default("Others"),
+export const jobSchema = z.object({
+  title: z.string().min(1, "Job title is required"),
+  company: z.string().min(1, "Company name is required"),
+  category: z.string().min(1, "Category is required"),
 
-  // Location
   city: z.string().min(1, "City is required"),
-  pincode: z.string().min(4, "PIN code is required"),
+  pincode: z.string().min(1, "Pincode is required"),
 
-  // Work type
-  workType: z.enum(["onsite", "remote", "hybrid"], {
-    required_error: "Please select a work type",
-  }),
+  // ✅ Correct enum usage
+  workType: z
+    .enum(["onsite", "remote", "hybrid"])
+    .refine((v) => !!v, {
+      message: "Please select a work type",
+    }),
 
-  // Salary
-  minSalary: z.coerce.number().nonnegative("Min salary must be ≥ 0"),
-  maxSalary: z.coerce.number().nonnegative("Max salary must be ≥ 0"),
-  currency: z.string().min(1).default("INR"),
+  minSalary: z.number().nonnegative(),
+  maxSalary: z.number().nonnegative(),
+  currency: z.string().min(1),
 
-  // Experience
-  minExperience: z.coerce.number().min(0, "Min experience must be ≥ 0"),
-  maxExperience: z.coerce.number().min(0, "Max experience must be ≥ 0"),
+  minExperience: z.number().nonnegative(),
+  maxExperience: z.number().nonnegative(),
 
-  // Skills text (we’ll store as string, can split into array later)
-  skills: z
-    .string()
-    .min(1, "Please enter at least one skill")
-    .max(500, "Skills description is too long")
-    .transform((value) => value.trim()),
+  skills: z.string().min(1, "Skills are required"),
+  description: z.string().min(1, "Description is required"),
 
-  // Description
-  description: z
-    .string()
-    .min(20, "Please enter at least 20 characters")
-    .max(4000, "Job description is too long"),
+  employmentType: z.enum(["full-time", "part-time", "contract"]),
+  shiftType: z.enum(["day", "night", "rotational"]),
 
-  // 🔥 NEW FIELDS
-
-  // Show this job as highlighted / special
-  isFeatured: z.boolean().default(false),
-
-  // How rare / special the talent is
-  talentType: z
-    .enum(["general", "niche", "volume"], {
-      required_error: "Please choose the talent type",
-    })
-    .default("general"),
-
-  // Candidate location preference / relocation
-  relocationPolicy: z
-    .enum(["local-only", "relocation-open", "open-anywhere"], {
-      required_error: "Please choose the relocation policy",
-    })
-    .default("local-only"),
+  relocationPolicy: z.enum([
+    "local-only",
+    "within-state",
+    "open-anywhere",
+  ]),
 });
 
-export type JobFormValues = z.infer<typeof jobFormSchema>;
+export type JobSchemaValues = z.infer<typeof jobSchema>;

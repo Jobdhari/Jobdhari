@@ -2,25 +2,64 @@
 
 import { Timestamp } from "firebase/firestore";
 
+export type JobSearchStatus =
+  | "actively-looking"
+  | "open-to-opportunities"
+  | "not-looking";
+
 export interface CandidateProfile {
   uid: string;
+
+  /* =====================
+   * Basic Identity
+   * ===================== */
   fullName: string;
   email: string;
   phone?: string;
 
+  /* =====================
+   * Professional Overview
+   * ===================== */
   headline?: string;              // “Senior IT Recruiter”
-  experience?: number;            // years
-  location?: string;              // city or PIN
-  preferredWorkType?: string;     // remote / onsite / hybrid
-  skills?: string[];              // ["sourcing", "C2C", "LinkedIn"]
   summary?: string;               // about me
+  experience?: number;            // total years
+  skills?: string[];              // ["sourcing", "C2C", "LinkedIn"]
 
-  industries?: string[];          // ["IT Services", "BPO"]
-  jobRoles?: string[];            // ["US IT Recruiter", "HRBP"]
-  dreamCompanies?: string[];      // ["Amazon", "Iplace"]
-  jobAlerts?: boolean;            // wants alerts?
+  /* =====================
+   * Location & Work Preferences
+   * ===================== */
+  location?: string;              // city or PIN
+  preferredWorkType?: "remote" | "onsite" | "hybrid";
 
-  resumeUrl?: string;             // storage URL
+  /* =====================
+   * 🎯 Targeting Preferences (USED BY UI)
+   * ===================== */
+  targetIndustries?: string[];
+  targetRoles?: string[];
+  targetCompanies?: string[];
+  targetLocations?: string[];
+
+  /* =====================
+   * 🔍 Job Search State (USED BY UI)
+   * ===================== */
+  jobSearchStatus?: JobSearchStatus;
+  jobAlerts?: boolean;
+
+  /* =====================
+   * Legacy / Backward-Compatible Fields
+   * ===================== */
+  industries?: string[];
+  jobRoles?: string[];
+  dreamCompanies?: string[];
+
+  /* =====================
+   * Assets
+   * ===================== */
+  resumeUrl?: string;
+
+  /* =====================
+   * Metadata
+   * ===================== */
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

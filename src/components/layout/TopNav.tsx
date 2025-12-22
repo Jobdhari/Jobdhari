@@ -11,13 +11,13 @@ export default function TopNav() {
   const isEmployer = pathname.startsWith("/employer");
   const isCandidate = pathname.startsWith("/candidate");
 
+  // 🔹 Default (Public) nav — MVP simple
   let nav: NavItem[] = [
     { href: "/", label: "Home" },
     { href: "/jobs", label: "Jobs" },
-    { href: "/candidate/profile", label: "Profile" },
   ];
 
-  // Employer header (like your Naukri screenshot)
+  // 🔹 Employer nav
   if (isEmployer) {
     nav = [
       { href: "/employer/dashboard", label: "Jobs & Responses" },
@@ -26,19 +26,17 @@ export default function TopNav() {
     ];
   }
 
-  // Candidate header (you can adjust later)
+  // 🔹 Candidate nav (NO profile in MVP)
   if (isCandidate) {
     nav = [
-      { href: "/candidate/home", label: "Home" },
       { href: "/jobs", label: "Jobs" },
-      { href: "/candidate/profile", label: "Profile" },
     ];
   }
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b">
-      {/* IMPORTANT: This container controls the logo spacing */}
       <div className="h-full w-full px-6 flex items-center justify-between">
+        {/* Logo */}
         <Link href="/" className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center font-semibold">
             J
@@ -46,10 +44,12 @@ export default function TopNav() {
           <span className="font-semibold text-lg">JobDhari</span>
         </Link>
 
+        {/* Nav */}
         <nav className="flex items-center gap-8 text-sm">
           {nav.map((item) => {
             const active =
-              pathname === item.href || pathname.startsWith(item.href + "/");
+              pathname === item.href ||
+              pathname.startsWith(item.href + "/");
 
             return (
               <Link

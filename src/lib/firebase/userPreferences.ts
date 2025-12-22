@@ -1,19 +1,46 @@
 // src/lib/firebase/userPreferences.ts
-import { doc, getDoc } from "firebase/firestore";
-import { db } import { auth, db } from "@/lib/firebase";;
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
 
-// 🔴 IMPORTANT:
-// Check in Firestore which collection holds the candidate documents
-// (where name, headline etc are stored).
-// If it is "users", change this to "users".
-export const CANDIDATE_COLLECTION = "candidates";
+export type UserPreferences = {
+  language?: "en" | "hi" | "te";
+  city?: string;
+  pincode?: string;
+  updatedAt?: any;
+};
 
-export async function hasJobPreferences(userId: string): Promise<boolean> {
-  const ref = doc(db, CANDIDATE_COLLECTION, userId);
+const COL = "userPreferences";
+
+/**
+ * Read current user's preferences (or specific uid if passed).
+ */
+export async function getUserPreferences(uid?: string) {
+  const userId = uid || auth.currentUser?.uid;
+  if (!userId) return null;
+
+  const ref = doc(db, COL, userId);
   const snap = await getDoc(ref);
 
-  if (!snap.exists()) return false;
+  return snap.exists() ? (snap.data() as UserPreferences) : null;
+}
 
-  const data = snap.data() as any;
-  return !!data.jobPreferences;
+/**
+ * Save preferences (merge).
+ */
+export async function saveUserPreferences(
+  prefs: Partial<UserPreferences>,
+  uid?: string
+) {
+  const userId = uid || auth.currentUser?.uid;
+  if (!userId) throw new Error("Not authenticated");
+
+  const ref = doc(db, COL, userId);
+
+  await setDoc(
+    ref,
+    { ...prefs, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+
+  return true;
 }

@@ -1,126 +1,99 @@
-// src/components/candidate/CandidateProfileForm.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useAuthState } from "react-firebase-hooks/auth";
-
-import { auth } from "@/lib/firebase";
-import { saveCandidateProfile, getCandidateProfile } from "@/lib/firebase/candidateService";
-import type { CandidateProfile } from "@/lib/types/candidate";
-
+import { useEffect, useState } from "react";
+import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
+import { CandidateProfile, JobSearchStatus } from "@/lib/types/candidate";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
 
-function splitCsv(value: string): string[] {
-  return value
+const splitCsv = (value: string): string[] =>
+  value
     .split(",")
-    .map((s) => s.trim())
+    .map((v) => v.trim())
     .filter(Boolean);
-}
 
 export default function CandidateProfileForm() {
-  const [user] = useAuthState(auth);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  // ─────────────────────
-  // Form state
-  // ─────────────────────
   const [fullName, setFullName] = useState("");
   const [headline, setHeadline] = useState("");
   const [experience, setExperience] = useState("");
   const [location, setLocation] = useState("");
-  const [preferredWorkType, setPreferredWorkType] = useState("remote");
   const [skills, setSkills] = useState("");
   const [summary, setSummary] = useState("");
 
-  // Smart-match fields
   const [targetIndustries, setTargetIndustries] = useState("");
   const [targetRoles, setTargetRoles] = useState("");
   const [targetCompanies, setTargetCompanies] = useState("");
   const [targetLocations, setTargetLocations] = useState("");
-  const [jobSearchStatus, setJobSearchStatus] = useState("actively-looking");
+
+  const [preferredWorkType, setPreferredWorkType] = useState<
+    "remote" | "onsite" | "hybrid" | ""
+  >("");
+
+  const [jobSearchStatus, setJobSearchStatus] =
+    useState<JobSearchStatus>("actively-looking");
+
   const [jobAlerts, setJobAlerts] = useState(true);
 
-  // UI state
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // ─────────────────────
-  // Load existing profile from Firestore
-  // ─────────────────────
   useEffect(() => {
     const loadProfile = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
+      if (!auth.currentUser) return;
 
       try {
-        const profile = await getCandidateProfile(user.uid);
-        if (!profile) {
-          setIsLoading(false);
-          return;
+        const ref = doc(db, "candidates", auth.currentUser.uid);
+        const snap = await getDoc(ref);
+
+        if (snap.exists()) {
+          const profile = snap.data() as CandidateProfile;
+
+          setFullName(profile.fullName ?? "");
+          setHeadline(profile.headline ?? "");
+          setExperience(
+            profile.experience !== undefined
+              ? String(profile.experience)
+              : ""
+          );
+          setLocation(profile.location ?? "");
+          setSkills((profile.skills ?? []).join(", "));
+          setSummary(profile.summary ?? "");
+
+          setTargetIndustries((profile.targetIndustries ?? []).join(", "));
+          setTargetRoles((profile.targetRoles ?? []).join(", "));
+          setTargetCompanies((profile.targetCompanies ?? []).join(", "));
+          setTargetLocations((profile.targetLocations ?? []).join(", "));
+
+          setPreferredWorkType(profile.preferredWorkType ?? "");
+          setJobSearchStatus(
+            profile.jobSearchStatus ?? "actively-looking"
+          );
+          setJobAlerts(profile.jobAlerts ?? true);
         }
-
-        setFullName(profile.fullName ?? "");
-        setHeadline(profile.headline ?? "");
-        setExperience(profile.experience?.toString() ?? "");
-        setLocation(profile.location ?? "");
-        setPreferredWorkType(profile.preferredWorkType ?? "remote");
-        setSkills((profile.skills ?? []).join(", "));
-
-        setSummary(profile.summary ?? "");
-
-        setTargetIndustries((profile.targetIndustries ?? []).join(", "));
-        setTargetRoles((profile.targetRoles ?? []).join(", "));
-        setTargetCompanies((profile.targetCompanies ?? []).join(", "));
-        setTargetLocations((profile.targetLocations ?? []).join(", "));
-
-        setJobSearchStatus(profile.jobSearchStatus ?? "actively-looking");
-        setJobAlerts(profile.jobAlerts ?? true);
       } catch (err) {
         console.error("Error loading candidate profile", err);
-        setError("Could not load profile. Please refresh.");
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
     loadProfile();
-  }, [user]);
+  }, []);
 
-  // ─────────────────────
-  // Submit handler
-  // ─────────────────────
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !user.email) {
-      setError("You must be logged in as a candidate to save your profile.");
-      return;
-    }
+  const handleSave = async () => {
+    if (!auth.currentUser) return;
 
-    setIsSaving(true);
-    setError(null);
-    setMessage(null);
-
+    setSaving(true);
     try {
-      const data: Partial<CandidateProfile> = {
-        uid: user.uid,
-        email: user.email,
+      const ref = doc(db, "candidates", auth.currentUser.uid);
+
+      await updateDoc(ref, {
         fullName: fullName.trim(),
         headline: headline.trim(),
         experience: experience ? Number(experience) : undefined,
         location: location.trim(),
-        preferredWorkType,
+        preferredWorkType: preferredWorkType || undefined,
         skills: splitCsv(skills),
         summary: summary.trim(),
 
@@ -131,259 +104,122 @@ export default function CandidateProfileForm() {
 
         jobSearchStatus,
         jobAlerts,
-        // resumeUrl will be added later when Storage is enabled
-      };
-
-      await saveCandidateProfile(user.uid, data);
-      setMessage("Profile saved successfully.");
-    } catch (err) {
-      console.error("Error saving candidate profile", err);
-      setError("Could not save profile. Please try again.");
+        updatedAt: serverTimestamp(),
+      });
     } finally {
-      setIsSaving(false);
+      setSaving(false);
     }
   };
 
-  if (!user) {
-    return (
-      <div className="mt-8 text-center text-sm text-muted-foreground">
-        Please log in as a candidate to view your dashboard.
-      </div>
-    );
+  if (loading) {
+    return <div className="p-6">Loading profile…</div>;
   }
 
-  if (isLoading) {
-    return (
-      <div className="mt-8 text-center text-sm text-muted-foreground">
-        Loading your profile…
-      </div>
-    );
-  }
-
-  // ─────────────────────
-  // UI
-  // ─────────────────────
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-10 max-w-4xl mx-auto pb-12"
-    >
-      <div>
-        <h2 className="text-xl font-semibold mb-2">Candidate Profile</h2>
-        <p className="text-sm text-muted-foreground">
-          Keep your profile updated so recruiters on JobDhari can
-          find you for the best roles.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <Input
+        placeholder="Full name"
+        value={fullName}
+        onChange={(e) => setFullName(e.target.value)}
+      />
 
-      {message && (
-        <p className="text-sm text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-lg">
-          {message}
-        </p>
-      )}
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 px-3 py-2 rounded-lg">
-          {error}
-        </p>
-      )}
+      <Input
+        placeholder="Headline (e.g. Senior Recruiter)"
+        value={headline}
+        onChange={(e) => setHeadline(e.target.value)}
+      />
 
-      {/* Basic info */}
-      <section className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Full Name</label>
-          <Input
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            placeholder="Sri Krishna"
-          />
-        </div>
+      <Input
+        placeholder="Total experience (years)"
+        value={experience}
+        onChange={(e) => setExperience(e.target.value)}
+      />
 
-        <div>
-          <label className="block text-sm font-medium mb-1">
-            Headline (e.g. Senior IT Recruiter)
-          </label>
-          <Input
-            value={headline}
-            onChange={(e) => setHeadline(e.target.value)}
-            placeholder="Senior IT Recruiter"
-          />
-        </div>
+      <Input
+        placeholder="Location"
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
+      />
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Total Experience (years)
-            </label>
-            <Input
-              type="number"
-              min={0}
-              value={experience}
-              onChange={(e) => setExperience(e.target.value)}
-              placeholder="12"
-            />
-          </div>
+      <Input
+        placeholder="Skills (comma separated)"
+        value={skills}
+        onChange={(e) => setSkills(e.target.value)}
+      />
 
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Location (City, PIN)
-            </label>
-            <Input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Hyderabad, 500081"
-            />
-          </div>
-        </div>
+      <Input
+        placeholder="Professional summary"
+        value={summary}
+        onChange={(e) => setSummary(e.target.value)}
+      />
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Preferred Work Type
-            </label>
-            <Select
-              value={preferredWorkType}
-              onValueChange={setPreferredWorkType}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Choose" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="remote">Remote</SelectItem>
-                <SelectItem value="onsite">Onsite</SelectItem>
-                <SelectItem value="hybrid">Hybrid</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <Input
+        placeholder="Target industries"
+        value={targetIndustries}
+        onChange={(e) => setTargetIndustries(e.target.value)}
+      />
 
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Skills (comma separated)
-            </label>
-            <Input
-              value={skills}
-              onChange={(e) => setSkills(e.target.value)}
-              placeholder="Sourcing, Screening, C2C, LinkedIn"
-            />
-          </div>
-        </div>
+      <Input
+        placeholder="Target roles"
+        value={targetRoles}
+        onChange={(e) => setTargetRoles(e.target.value)}
+      />
 
-        <div>
-          <label className="block text-sm font-medium mb-1">
-            About / Summary
-          </label>
-          <Textarea
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            rows={4}
-            placeholder="Short summary about you, what roles you are looking for, etc."
-          />
-        </div>
-      </section>
+      <Input
+        placeholder="Target companies"
+        value={targetCompanies}
+        onChange={(e) => setTargetCompanies(e.target.value)}
+      />
 
-      {/* Smart-match preferences */}
-      <section className="space-y-4">
-        <h3 className="text-lg font-semibold">Job Preferences</h3>
+      <Input
+        placeholder="Target locations"
+        value={targetLocations}
+        onChange={(e) => setTargetLocations(e.target.value)}
+      />
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Target Industries (comma separated)
-            </label>
-            <Input
-              value={targetIndustries}
-              onChange={(e) => setTargetIndustries(e.target.value)}
-              placeholder="IT Services, BPO, Product, Startup"
-            />
-          </div>
+      <select
+        value={preferredWorkType}
+        onChange={(e) =>
+          setPreferredWorkType(
+            e.target.value as "remote" | "onsite" | "hybrid" | ""
+          )
+        }
+        className="h-10 w-full rounded-md border px-3"
+      >
+        <option value="">Preferred work type</option>
+        <option value="remote">Remote</option>
+        <option value="onsite">Onsite</option>
+        <option value="hybrid">Hybrid</option>
+      </select>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Target Roles / Titles (comma separated)
-            </label>
-            <Input
-              value={targetRoles}
-              onChange={(e) => setTargetRoles(e.target.value)}
-              placeholder="US IT Recruiter, TA Specialist, HRBP"
-            />
-          </div>
-        </div>
+      <select
+        value={jobSearchStatus}
+        onChange={(e) =>
+          setJobSearchStatus(e.target.value as JobSearchStatus)
+        }
+        className="h-10 w-full rounded-md border px-3"
+      >
+        <option value="actively-looking">Actively looking</option>
+        <option value="open-to-opportunities">Open to opportunities</option>
+        <option value="not-looking">Not looking</option>
+      </select>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Dream / Target Companies
-            </label>
-            <Input
-              value={targetCompanies}
-              onChange={(e) => setTargetCompanies(e.target.value)}
-              placeholder="Amazon, Infosys, Iplace"
-            />
-          </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={jobAlerts}
+          onChange={(e) => setJobAlerts(e.target.checked)}
+        />
+        Receive job alerts
+      </label>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Preferred Locations
-            </label>
-            <Input
-              value={targetLocations}
-              onChange={(e) => setTargetLocations(e.target.value)}
-              placeholder="Hyderabad, Bangalore, Pune"
-            />
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Job Search Status
-            </label>
-            <Select
-              value={jobSearchStatus}
-              onValueChange={setJobSearchStatus}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="actively-looking">
-                  Actively looking
-                </SelectItem>
-                <SelectItem value="open">
-                  Open to good opportunities
-                </SelectItem>
-                <SelectItem value="not-looking">
-                  Not looking right now
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-2 mt-7">
-            <input
-              id="job-alerts"
-              type="checkbox"
-              className="h-4 w-4"
-              checked={jobAlerts}
-              onChange={(e) => setJobAlerts(e.target.checked)}
-            />
-            <label htmlFor="job-alerts" className="text-sm text-muted-foreground">
-              Send me job alerts & role recommendations on JobDhari
-            </label>
-          </div>
-        </div>
-      </section>
-
-      {/* Save button */}
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={isSaving}>
-          {isSaving ? "Saving…" : "Save Profile"}
-        </Button>
-      </div>
-
-      {/* Note about resume – future work */}
-      <p className="text-xs text-muted-foreground pt-4">
-        Resume upload & parsing will be added once Firebase Storage is enabled.
-      </p>
-    </form>
+      <Button
+        onClick={handleSave}
+        disabled={saving}
+        className="bg-orange-500 hover:bg-orange-600"
+      >
+        {saving ? "Saving…" : "Save Profile"}
+      </Button>
+    </div>
   );
 }

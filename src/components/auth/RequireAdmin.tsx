@@ -1,33 +1,28 @@
 "use client";
 
-import { ReactNode, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useUserRole } from "@/lib/hooks/useUserRole";
-import { Card } from "@/components/ui/card";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
-export default function RequireAdmin({ children }: { children: ReactNode }) {
+export default function RequireAdmin({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const router = useRouter();
-  const { user, role, loading } = useUserRole();
 
   useEffect(() => {
-    if (!loading) {
-      if (!user) router.replace("/login?role=employer"); // force login
-      else if (role !== "admin") router.replace("/dashboard?role=employer"); // bounce non-admin
-    }
-  }, [user, role, loading, router]);
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        router.replace("/login/admin");
+      }
+      // NOTE:
+      // If you later add role-checking, do it here
+    });
 
-  if (loading) {
-    return (
-      <Card className="p-6 mt-10">
-        <p className="text-sm text-gray-500">Checking permissions…</p>
-      </Card>
-    );
-  }
-
-  if (!user || role !== "admin") {
-    // brief fallback while router redirects
-    return null;
-  }
+    return () => unsub();
+  }, [router]);
 
   return <>{children}</>;
 }
