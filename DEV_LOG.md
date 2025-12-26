@@ -717,3 +717,23 @@ Pre-push build gate passes.
 Application is production build–safe and deployable.
 
 Structural issues are resolved at root cause level, not masked.
+## DEV-2025-12-26-01 — Employer Dashboard: remove dropdown actions, inline layout
+
+**Date:** 2025-12-26  
+
+### Change
+- Removed the “More” dropdown from Employer Dashboard job cards.
+- Moved all job actions to an inline two-row layout:
+  - Primary row: View responses, Edit
+  - Secondary row: Close/Reopen, Move to Draft, Repost (bump – open jobs only)
+
+### Reason
+The dropdown-based action menu caused UI overlap and stacking (z-index) issues between adjacent job cards.
+Fixing this via portals/z-index added unnecessary CSS complexity and risked further regressions.
+For MVP stability, inline actions are simpler, clearer, and more robust.
+
+### Outcome
+- No UI overlap or interaction bugs.
+- All job actions remain accessible and predictable.
+- Dashboard UX is calmer and MVP-stable.
+- No Firestore, schema, or build impact.

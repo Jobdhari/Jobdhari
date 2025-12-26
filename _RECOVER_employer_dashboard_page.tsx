@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -7,18 +7,17 @@ import {
   useRouter,
   useSearchParams,
 } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
+import { getAuth } from "firebase/auth";
 
 import EmployerGate from "@/components/auth/EmployerGate";
 
-import { auth } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import {
   EmployerJob,
   listEmployerJobs,
 } from "@/lib/firebase/employerJobsService";
 import { updateJobStatus } from "@/lib/updateJobStatus";
 import { getApplicationCountsByJobIds } from "@/lib/firebase/getApplicationCountsByJobIds";
-import { bumpJob } from "@/lib/firebase/bumpJob";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,9 +28,11 @@ import { Badge } from "@/components/ui/badge";
 ========================= */
 function normalizeJobStatus(raw: unknown): "open" | "closed" | "draft" {
   const s = String(raw ?? "").toLowerCase().trim();
+
   if (s === "open" || s === "closed" || s === "draft") return s;
   if (s === "active" || s === "approved" || s === "published") return "open";
   if (s === "inactive") return "closed";
+
   return "open";
 }
 
@@ -64,12 +65,13 @@ function FiltersPanel({
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Title, company, location…"
+          placeholder="Title, company, locationΓÇª"
         />
       </div>
 
       <div className="space-y-2">
         <div className="text-sm font-semibold">Job status</div>
+
         <div className="space-y-2">
           {[
             { key: "all", label: "All" },
@@ -88,12 +90,19 @@ function FiltersPanel({
                   statusCounts.closed +
                   statusCounts.draft;
 
+            const active = status === x.key;
+
             return (
               <button
                 key={x.key}
                 type="button"
                 onClick={() => setStatus(x.key as any)}
-                className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm hover:bg-muted/50"
+                className={[
+                  "flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm",
+                  active
+                    ? "bg-muted font-medium"
+                    : "hover:bg-muted/50",
+                ].join(" ")}
               >
                 <span>{x.label}</span>
                 <Badge>{count}</Badge>
@@ -113,14 +122,12 @@ function FiltersPanel({
 /* =========================
    Page
 ========================= */
-export default function EmployerDashboardClient() {
+export default function EmployerDashboardPage() {
   const [jobs, setJobs] = useState<EmployerJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [responseCounts, setResponseCounts] = useState<Record<string, number>>(
     {}
   );
-
-  const [employerUid, setEmployerUid] = useState<string | null>(null);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -131,57 +138,56 @@ export default function EmployerDashboardClient() {
   >("all");
   const [search, setSearch] = useState("");
 
-  /* ---------- Auth subscription ---------- */
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setEmployerUid(u?.uid ?? null);
-    });
-    return () => unsub();
-  }, []);
+  const employerUid = getAuth().currentUser?.uid;
 
-  /* ---------- URL → State ---------- */
+  /* ---------- URL ΓåÆ State ---------- */
   useEffect(() => {
-    setStatus((searchParams.get("status") || "all") as any);
-    setSearch(searchParams.get("q") || "");
+    const urlStatus = (searchParams.get("status") || "all").toLowerCase();
+    const urlQ = searchParams.get("q") || "";
+
+    const allowed = new Set(["all", "open", "closed", "draft"]);
+    const safeStatus = allowed.has(urlStatus)
+      ? (urlStatus as any)
+      : "all";
+
+    setStatus((prev) => (prev === safeStatus ? prev : safeStatus));
+    setSearch((prev) => (prev === urlQ ? prev : urlQ));
   }, [searchParams]);
 
-  /* ---------- State → URL ---------- */
+  /* ---------- State ΓåÆ URL ---------- */
   useEffect(() => {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(searchParams.toString());
+
     if (status !== "all") params.set("status", status);
-    if (search.trim()) params.set("q", search.trim());
-    router.replace(params.toString() ? `${pathname}?${params}` : pathname);
+    else params.delete("status");
+
+    const q = search.trim();
+    if (q) params.set("q", q);
+    else params.delete("q");
+
+    router.replace(
+      params.toString() ? `${pathname}?${params}` : pathname
+    );
   }, [status, search, pathname]);
 
   /* ---------- Fetch jobs ---------- */
   const fetchJobs = async () => {
-    if (!employerUid) return;
+    if (!employerUid) {
+      setJobs([]);
+      setResponseCounts({});
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     try {
       const fetchedJobs = await listEmployerJobs({ employerUid });
-
-      // bump-first, then createdAt
-      fetchedJobs.sort((a: any, b: any) => {
-        const aB = a.lastBumpedAt?.toMillis?.() ?? 0;
-        const bB = b.lastBumpedAt?.toMillis?.() ?? 0;
-        if (aB !== bB) return bB - aB;
-        return (
-          (b.createdAt?.toMillis?.() ?? 0) -
-          (a.createdAt?.toMillis?.() ?? 0)
-        );
-      });
-
       setJobs(fetchedJobs);
 
       const counts = await getApplicationCountsByJobIds(
         fetchedJobs.map((j) => j.id)
       );
       setResponseCounts(counts);
-    } catch (e) {
-      console.error("Employer dashboard fetchJobs failed:", e);
-      setJobs([]);
-      setResponseCounts({});
     } finally {
       setLoading(false);
     }
@@ -191,62 +197,73 @@ export default function EmployerDashboardClient() {
     fetchJobs();
   }, [employerUid]);
 
+  /* ---------- Counts ---------- */
   const statusCounts = useMemo(() => {
-    const c = { open: 0, closed: 0, draft: 0 };
-    jobs.forEach((j) => c[normalizeJobStatus(j.status)]++);
-    return c;
+    const counts = { open: 0, closed: 0, draft: 0 };
+    for (const j of jobs) {
+      counts[normalizeJobStatus(j.status)]++;
+    }
+    return counts;
   }, [jobs]);
 
+  /* ---------- Filtered jobs ---------- */
   const filteredJobs = useMemo(() => {
-    const q = search.toLowerCase();
+    const q = search.trim().toLowerCase();
+
     return jobs.filter((j) => {
       const s = normalizeJobStatus(j.status);
       return (
         (status === "all" || s === status) &&
-        (!q ||
-          j.title.toLowerCase().includes(q) ||
-          j.companyName.toLowerCase().includes(q) ||
-          j.location.toLowerCase().includes(q))
+        (q === "" ||
+          String(j.title).toLowerCase().includes(q) ||
+          String(j.companyName).toLowerCase().includes(q) ||
+          String(j.location).toLowerCase().includes(q))
       );
     });
   }, [jobs, status, search]);
 
+  const clearFilters = () => {
+    setStatus("all");
+    setSearch("");
+  };
+
   return (
     <EmployerGate>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
-        <aside className="hidden border bg-white p-6 lg:block">
+        <aside className="hidden rounded-lg border bg-white p-6 lg:block">
           <FiltersPanel
             status={status}
             setStatus={setStatus}
             search={search}
             setSearch={setSearch}
             statusCounts={statusCounts}
-            onClear={() => {
-              setStatus("all");
-              setSearch("");
-            }}
+            onClear={clearFilters}
           />
         </aside>
 
         <main className="space-y-6 p-6">
-          <div className="flex justify-between">
+          <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-3xl font-bold">Jobs & Responses</h1>
-              <p className="text-gray-600">
+              <h1 className="text-4xl font-bold">Jobs & Responses</h1>
+              <p className="mt-2 text-gray-600">
                 Manage your posted jobs and view responses.
               </p>
             </div>
 
             <Link href="/employer/post-job">
-              <Button>+ Post New Job</Button>
+              <Button className="bg-orange-500 hover:bg-orange-600">
+                + Post New Job
+              </Button>
             </Link>
           </div>
 
-          <div className="rounded-lg border bg-white p-6">
+          <div className="rounded-2xl border bg-white p-6">
             {loading ? (
-              <div>Loading…</div>
+              <div className="text-gray-600">LoadingΓÇª</div>
             ) : filteredJobs.length === 0 ? (
-              <div className="py-16 text-center">No jobs found</div>
+              <div className="py-16 text-center text-gray-700">
+                No jobs match your filters.
+              </div>
             ) : (
               <div className="space-y-4">
                 {filteredJobs.map((job) => {
@@ -255,99 +272,78 @@ export default function EmployerDashboardClient() {
                   return (
                     <div
                       key={job.id}
-                      className="flex items-start justify-between gap-6 rounded-lg border p-4"
+                      className="flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4"
                     >
-                      {/* Left */}
                       <div>
                         <div className="font-semibold">{job.title}</div>
                         <div className="text-sm text-gray-600">
-                          {job.companyName} · {job.location}
+                          {job.companyName} ΓÇó {job.location}
                         </div>
                         <div className="mt-1 flex items-center gap-3">
                           <Badge variant="secondary">{s}</Badge>
                           <span className="text-sm text-muted-foreground">
-                            Responses:{" "}
-                            <b>{responseCounts[job.id] ?? 0}</b>
+                            Responses: {responseCounts[job.id] || 0}
                           </span>
                         </div>
                       </div>
 
-                      {/* Right actions */}
-                      <div className="flex flex-col items-end gap-2">
-                        {/* Primary */}
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={() =>
-                              router.push(
-                                `/employer/jobs/${job.id}/responses`
-                              )
-                            }
-                          >
-                            View responses
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() =>
-                              router.push(
-                                `/employer/jobs/${job.id}/edit`
-                              )
-                            }
-                          >
-                            Edit
-                          </Button>
-                        </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            router.push(`/employer/jobs/${job.id}/edit`)
+                          }
+                        >
+                          Edit
+                        </Button>
 
-                        {/* Secondary */}
-                        <div className="flex items-center gap-2">
-                          {s === "open" ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={async () => {
-                                await updateJobStatus(job.id, "closed");
-                                fetchJobs();
-                              }}
-                            >
-                              Close
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={async () => {
-                                await updateJobStatus(job.id, "open");
-                                fetchJobs();
-                              }}
-                            >
-                              Reopen
-                            </Button>
-                          )}
-
+                        {s === "draft" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              await updateJobStatus(job.id, "open");
+                              await fetchJobs();
+                            }}
+                          >
+                            Publish
+                          </Button>
+                        ) : (
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={async () => {
                               await updateJobStatus(job.id, "draft");
-                              fetchJobs();
+                              await fetchJobs();
                             }}
                           >
                             Move to Draft
                           </Button>
+                        )}
 
-                          {s === "open" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={async () => {
-                                await bumpJob(job.id);
-                                fetchJobs();
-                              }}
-                            >
-                              Repost (bump)
-                            </Button>
-                          )}
-                        </div>
+                        {s === "closed" ? (
+                          <Button
+                            size="sm"
+                            onClick={async () => {
+                              await updateJobStatus(job.id, "open");
+                              await fetchJobs();
+                            }}
+                          >
+                            Reopen
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={async () => {
+                              await updateJobStatus(job.id, "closed");
+                              await fetchJobs();
+                            }}
+                          >
+                            Close
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );

@@ -33,10 +33,12 @@ export interface EmployerJob {
   postedByUid: string;
   createdAt?: any;
   updatedAt?: any;
+  lastBumpedAt?: any;
 }
 
 /**
  * ✅ Employer dashboard job list (owner-only)
+ * Stable ordering — no composite index required
  */
 export async function listEmployerJobs(params: { employerUid: string }) {
   const { employerUid } = params;
@@ -45,7 +47,7 @@ export async function listEmployerJobs(params: { employerUid: string }) {
   const q = query(
     collection(db, "jobs"),
     where("postedByUid", "==", employerUid),
-    orderBy("updatedAt", "desc")
+    orderBy("createdAt", "desc") // ✅ stable, index-safe
   );
 
   const snap = await getDocs(q);
@@ -66,6 +68,7 @@ export async function listEmployerJobs(params: { employerUid: string }) {
       postedByUid: data.postedByUid,
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
+      lastBumpedAt: data.lastBumpedAt,
     } as EmployerJob;
   });
 }
@@ -90,8 +93,8 @@ export async function createEmployerJob(input: {
 
   const jobDhariId = await generateJobDhariId();
 
-  const status: JobStatus = input.status ?? "open";        // ✅ publish by default
-  const isPublished: boolean = input.isPublished ?? true; // ✅ publish by default
+  const status: JobStatus = input.status ?? "open";
+  const isPublished: boolean = input.isPublished ?? true;
 
   const ref = await addDoc(collection(db, "jobs"), {
     jobDhariId,
@@ -110,6 +113,7 @@ export async function createEmployerJob(input: {
 
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
+    lastBumpedAt: serverTimestamp(),
   });
 
   return ref.id;
