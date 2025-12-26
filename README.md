@@ -231,3 +231,11 @@ Check DEV_LOG.md for recent changes
 Build simple.
 Ship stable.
 Scale later.
+## Architecture Guardrails (Read first)
+Before changing code structure, routing, Firebase collections, or imports:
+- See: `ARCHITECTURE_GUARDRAILS.md`
+
+This project follows strict MVP rules:
+- Firestore reads/writes must be optimized (no N+1 reads)
+- One source of truth for candidate profile
+- Consistent apply flow and redirects

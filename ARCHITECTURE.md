@@ -387,3 +387,109 @@ All app code imports Firebase ONLY like:
 
 ```ts
 import { auth, db, storage } from "@/lib/firebase";
+# JobDhari Architecture Guardrails (Next.js 14 + Firebase)
+
+## 0) Stack (Locked)
+- Next.js 14 (App Router)
+- Firebase Auth + Firestore
+- TailwindCSS + shadcn/ui
+
+---
+
+## 1) Project Structure (Do not break)
+- Routes: `src/app/<route>/page.tsx`
+- Layouts: `src/app/<route>/layout.tsx`
+- UI components: `src/components/ui/*`
+- Feature components: `src/components/<feature>/*`
+- Firebase services only: `src/lib/firebase/*`
+
+✅ Rule: Firestore queries must live in `src/lib/firebase/*Service.ts` files.  
+❌ Don’t scatter Firestore queries across pages/components.
+
+---
+
+## 2) Client vs Server Components (Biggest break cause)
+Add `"use client"` ONLY when file uses:
+- React hooks: `useState/useEffect`
+- Next hooks: `useRouter/useSearchParams`
+- Firebase auth hooks: `useAuthState/onAuthStateChanged`
+
+✅ Rule: If a page needs auth state or browser Firestore calls → it must be a client component.  
+❌ Don’t call hooks in a file without `"use client"`.
+
+---
+
+## 3) Import Path Consistency (Stops “Module not found” loops)
+✅ Rule: File name and import path must match EXACTLY (case-sensitive).
+Example:
+- File: `src/components/jobs/ApplyJobButton.tsx`
+- Import: `@/components/jobs/ApplyJobButton`
+
+❌ Don’t rename files without updating all imports.
+
+---
+
+## 4) Firestore Reads/Writes (Performance rules)
+### Reads
+- Jobs list: 1 query to `jobs`
+- Applied job ids: 1 query to `applications` where userId == uid
+- My jobs: 1 query to `applications` where userId == uid
+
+### Writes
+- Apply: 1 write only, idempotent doc id: `${uid}_${jobId}`
+- Use `setDoc()` so applying twice does not create duplicates.
+
+✅ Rule: Store job summary inside application doc to avoid extra job reads.  
+❌ No “N+1 reads” (loop jobs -> fetch each job doc).
+
+---
+
+## 5) Firestore Security Rules (Most “Missing permissions” errors)
+If you see: `Missing or insufficient permissions`
+It usually means:
+- Rules don’t allow the read/write for this collection
+- Wrong collection name
+- Doc fields don’t match rule checks
+
+✅ Rule: Every new collection requires rules update at the same time.
+
+---
+
+## 6) Profile Truth (Avoid user confusion)
+We have:
+- Full Profile: `/profile` (source of truth)
+- Quick Profile: `/quick-profile` (onboarding/preferences helper)
+
+✅ Rule: `/profile` is source of truth.  
+✅ Quick profile only merges/augments preferences.  
+❌ Never keep conflicting profile data in two places.
+
+---
+
+## 7) Candidate Apply Flow (must be consistent)
+1) Browse jobs
+2) Click apply
+3) If not logged in -> login (return to jobs)
+4) If profile missing -> quick-profile (return to jobs)
+5) Apply (1 write)
+6) Redirect -> /my-jobs
+
+✅ Rule: redirects must be predictable:
+- Apply success -> /my-jobs
+- Not logged in -> /login?next=/jobs
+- Profile missing -> /quick-profile?next=/jobs
+
+---
+
+## 8) MVP Safety Rule (No big refactors)
+✅ Rule: 1 change = 1 commit.  
+❌ Avoid big renames/moves and multi-page rewrites.
+
+---
+
+## 9) Matching Engine Guardrails (MVP)
+- Start as pure function: `matchScore(candidate, job) -> number`
+- First version runs client-side using already-loaded data
+- No extra reads per job
+
+✅ Rule: matching must not introduce additional Firestore reads per card.
