@@ -737,3 +737,32 @@ For MVP stability, inline actions are simpler, clearer, and more robust.
 - All job actions remain accessible and predictable.
 - Dashboard UX is calmer and MVP-stable.
 - No Firestore, schema, or build impact.
+## DEV-2025-12-26-02 — Firestore rules: allow candidateProfiles self read/write
+
+**Date:** 2025-12-26  
+**Related Failures:** FAIL-2025-12-26-01
+
+### Change
+Added Firestore rules for `candidateProfiles/{uid}`:
+- user can read/create/update only their own doc
+- delete disabled
+
+### Reason
+Candidate profile save was failing with “Missing or insufficient permissions” due to missing rules.
+
+### Outcome
+Candidate can create/edit profile successfully. Apply flow (login → profile → apply) is unblocked.
+## DEV-2025-12-26-02 — Restore stable login flow after freeze regression
+
+**Date:** 2025-12-26
+
+### Change
+- Reverted login page changes to last known stable version to stop navigation freeze.
+
+### Reason
+Recent login UX refactor caused the app to hang (“Wait or Reload”) when navigating to login routes.
+
+### Outcome
+- Navigation to Candidate/Employer login routes is stable again.
+- Home page buttons no longer hang.
+- Ready to continue candidate flow work safely.

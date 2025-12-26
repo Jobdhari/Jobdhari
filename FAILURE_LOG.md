@@ -659,3 +659,37 @@ Build failed due to missing external dependency twilio imported by /send-test/ro
 And under Fix:
 Replaced userPreferences.ts with canonical imports from @/lib/firebase
 Disabled /send-test route to remove twilio dependency from MVP build
+## FAIL-2025-12-26-01 — Candidate profile save blocked by Firestore rules
+
+**Date:** 2025-12-26  
+**Status:** ✅ Resolved  
+**Fixed In:** DEV-2025-12-26-02
+
+### Symptom
+Candidate Profile page shows: “FirebaseError: Missing or insufficient permissions” when trying to save/edit profile.
+
+### Root Cause
+Firestore rules did not include permissions for `candidateProfiles/{uid}`.
+
+### Fix
+Added a rule allowing an authenticated user to read/create/update only their own profile document.
+
+### Prevention Rule
+Whenever we add a new collection (or start writing to it), we must add Firestore rules for it before shipping UI.
+
+**Status:** ✅ Resolved  
+**Fixed In:** DEV-2025-12-26-02
+
+### Symptom
+Clicking "Candidate Login / Create Profile" or "Employer Login" caused the app to hang.
+Browser showed “Wait or Reload page”.
+
+### Root Cause
+Recent changes to login page structure caused a client-side render freeze.
+
+### Fix
+Reverted login page to last known working version.
+
+### Prevention Rule
+Never refactor auth/login UX and routing together.
+Always validate navigation before UI polish.
