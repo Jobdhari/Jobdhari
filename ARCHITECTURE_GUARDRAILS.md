@@ -34,7 +34,52 @@ Add `"use client"` ONLY when file uses:
 ✅ Rule: If a page needs auth state or browser Firestore calls → it must be a client component.  
 ❌ Don’t call hooks in a file without `"use client"`.
 
+------
+
+## 🔥 Danger Zones (Changing these often breaks other things)
+
+This section lists “blast radius” areas — if you touch these, re-test the related flows.
+
+### 1) Login / Auth routes
+**Blast radius:** Navigation freezes, infinite redirects, blank pages  
+**Golden rule:** `page.tsx` must not use `useSearchParams`, `useRouter`, or Firebase client SDK.  
+**Pattern:** `page.tsx` = server wrapper, `*Client.tsx` = all hooks + auth logic.  
+**After any change, re-test:**
+- /login?role=candidate
+- /login?role=employer
+- Apply flow redirect (job -> login -> back)
+
+### 2) App Router Client/Server separation
+**Blast radius:** “Wait or reload page”, hydration bugs, build failures  
+**Golden rule:** If a file uses hooks → it must be `"use client"`.  
+**Never:** Move hook logic into server pages/layouts “just for UI”.
+
+### 3) Firestore rules
+**Blast radius:** “Missing or insufficient permissions”, silent failures, empty dashboards  
+**Golden rule:** Any schema change or new collection requires rules update same day.  
+**After any change, re-test:**
+- Employer post job
+- Employer dashboard list
+- Candidate apply
+- Profile save
+
+### 4) Firestore schema field changes (jobs/applications/profiles)
+**Blast radius:** Queries return empty, filters fail, counts break  
+**Golden rule:** Never rename fields used in queries without migration + backwards compatibility.  
+**After any change, re-test:**
+- Employer jobs list (createdByUid/postedByUid)
+- Applications counts per job (jobId must be Firestore doc id)
+- Applied state (ApplyJobButton)
+
+### 5) Imports & file moves
+**Blast radius:** module-not-found build failures  
+**Golden rule:** Rename/move = update every import immediately + run build.
+**After any change, re-test:**
+- npm run build
+- npm run docs:featuremap
+
 ---
+
 
 ## 3) Import Path Consistency (Stops “Module not found” loops)
 ✅ Rule: File name and import path must match EXACTLY (case-sensitive).
