@@ -10,7 +10,6 @@ import {
 import { onAuthStateChanged } from "firebase/auth";
 
 import EmployerGate from "@/components/auth/EmployerGate";
-
 import { auth } from "@/lib/firebase";
 import {
   EmployerJob,
@@ -18,7 +17,6 @@ import {
 } from "@/lib/firebase/employerJobsService";
 import { updateJobStatus } from "@/lib/updateJobStatus";
 import { getApplicationCountsByJobIds } from "@/lib/firebase/getApplicationCountsByJobIds";
-import { bumpJob } from "@/lib/firebase/bumpJob";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,18 +158,6 @@ export default function EmployerDashboardClient() {
     setLoading(true);
     try {
       const fetchedJobs = await listEmployerJobs({ employerUid });
-
-      // bump-first, then createdAt
-      fetchedJobs.sort((a: any, b: any) => {
-        const aB = a.lastBumpedAt?.toMillis?.() ?? 0;
-        const bB = b.lastBumpedAt?.toMillis?.() ?? 0;
-        if (aB !== bB) return bB - aB;
-        return (
-          (b.createdAt?.toMillis?.() ?? 0) -
-          (a.createdAt?.toMillis?.() ?? 0)
-        );
-      });
-
       setJobs(fetchedJobs);
 
       const counts = await getApplicationCountsByJobIds(
@@ -334,19 +320,6 @@ export default function EmployerDashboardClient() {
                           >
                             Move to Draft
                           </Button>
-
-                          {s === "open" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={async () => {
-                                await bumpJob(job.id);
-                                fetchJobs();
-                              }}
-                            >
-                              Repost (bump)
-                            </Button>
-                          )}
                         </div>
                       </div>
                     </div>
