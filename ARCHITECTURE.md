@@ -370,3 +370,20 @@ Core files (pages/services) may include:
  */
 
 This enables Feature → File → Exports mapping without manual documentation drift.
+# JobDhari Architecture (Locked)
+
+## Stack (Locked)
+- Next.js 14 (App Router) + TypeScript
+- Firebase Auth + Firestore (+ Storage planned)
+- TailwindCSS + shadcn/ui
+- Hosting: Vercel
+
+## Firebase (Single Source of Truth — Locked)
+Firebase is initialized once and exported via:
+
+- `src/lib/firebase.ts`
+
+All app code imports Firebase ONLY like:
+
+```ts
+import { auth, db, storage } from "@/lib/firebase";
