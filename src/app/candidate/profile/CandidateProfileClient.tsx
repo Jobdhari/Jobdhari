@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
 
 import { auth } from "@/lib/firebase";
 import {
@@ -41,19 +41,45 @@ export default function CandidateProfileClient() {
     return () => unsub();
   }, [router]);
 
+  async function handleLogout() {
+    try {
+      await signOut(auth);
+      router.replace("/login?role=candidate");
+    } catch {
+      // no-op
+    }
+  }
+
   if (loading) {
     return <div className="p-6">Loading profile…</div>;
   }
 
   return (
     <div className="mx-auto max-w-3xl p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Candidate Profile</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage your personal and professional details
-        </p>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Candidate Profile</h1>
+          <p className="text-sm text-muted-foreground">
+            Manage your personal and professional details
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => router.push("/candidate/profile/edit")}
+          >
+            Edit Profile
+          </Button>
+
+          <Button variant="outline" onClick={handleLogout}>
+            Logout
+          </Button>
+        </div>
       </div>
 
+      {/* Profile Card */}
       <div className="rounded-xl border bg-white p-6 space-y-4">
         <div>
           <div className="text-sm text-muted-foreground">Name</div>
@@ -75,13 +101,6 @@ export default function CandidateProfileClient() {
             {profile?.phone || "Not provided"}
           </div>
         </div>
-
-        <Button
-          onClick={() => router.push("/candidate/profile/edit")}
-          className="mt-4"
-        >
-          Edit Profile
-        </Button>
       </div>
     </div>
   );

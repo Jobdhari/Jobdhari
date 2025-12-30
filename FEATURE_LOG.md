@@ -81,3 +81,14 @@ Shows jobs applied to by the candidate.
 ### Commits
 - feat(employer): add EmployerGate + job posting  
   → commit: 9fb6679
+# Feature → Commit Map
+
+## Candidate Login
+- <commit-hash> — feat(login): add google sign-in + create account + forgot password
+- <commit-hash> — fix(login): route candidates to dashboard/profile
+
+## Candidate Profile
+- <commit-hash> — fix(profile): resolve candidate profile edit permissions
+
+## Candidate Dashboard
+- <commit-hash> — feat(candidate): my applications dashboard v1

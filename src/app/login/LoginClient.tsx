@@ -18,6 +18,31 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 
+/* ---------- Google Icon ---------- */
+function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden="true" {...props}>
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.2 0 5.9 1.1 8.1 3.1l6-6C34.3 2.9 29.5 1 24 1 14.6 1 6.5 6.4 2.7 14.3l7 5.4C11.6 13.6 17.3 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.1 24.5c0-1.6-.1-2.7-.4-4H24v8h12.6c-.3 2-1.8 5-5.1 7.1l7.8 6c4.6-4.2 7.3-10.4 7.3-17.1z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M9.7 28.7c-.5-1.4-.8-2.8-.8-4.2s.3-2.8.8-4.2l-7-5.4C1.3 18 1 21 1 24.5s.3 6.5 1.7 9.6l7-5.4z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 47c5.5 0 10.1-1.8 13.5-4.9l-7.8-6c-2.1 1.4-4.9 2.4-8.7 2.4-6.7 0-12.4-4.1-14.3-10l-7 5.4C6.5 41.6 14.6 47 24 47z"
+      />
+    </svg>
+  );
+}
+
+/* ---------- Errors ---------- */
 function friendlyAuthError(err: unknown) {
   const e = err as AuthError | undefined;
   const code = e?.code ?? "";
@@ -31,6 +56,7 @@ function friendlyAuthError(err: unknown) {
   return e?.message || "Login failed.";
 }
 
+/* ---------- Component ---------- */
 export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -62,19 +88,16 @@ export default function LoginClient() {
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, password);
 
-      // 1️⃣ explicit redirect always wins
       if (redirectTo) {
         router.replace(redirectTo);
         return;
       }
 
-      // 2️⃣ employer
       if (role === "employer") {
         router.replace("/employer/dashboard");
         return;
       }
 
-      // 3️⃣ candidate → dashboard (NEVER jobs)
       router.replace("/candidate/dashboard");
     } catch (err) {
       toast.error(friendlyAuthError(err));
@@ -129,17 +152,21 @@ export default function LoginClient() {
           {role === "employer" ? "Employer Login" : "Candidate Login"}
         </h1>
 
+        {/* ✅ FIXED GOOGLE BUTTON */}
         <Button
+          type="button"
           variant="outline"
+          className="w-full h-11 bg-white hover:bg-white border border-zinc-300 flex items-center justify-center gap-2"
           onClick={handleGoogleLogin}
           disabled={loading}
         >
-          Continue with Google
+          <GoogleIcon className="h-5 w-5" />
+          <span className="text-sm font-medium">Continue with Google</span>
         </Button>
 
         <form
           onSubmit={(e) => {
-            e.preventDefault(); // 🔒 FIXES “LOGIN TWICE”
+            e.preventDefault();
             handleLogin();
           }}
           className="space-y-4"
@@ -170,7 +197,7 @@ export default function LoginClient() {
             </button>
           </div>
 
-          <Button type="submit" disabled={loading} className="w-full">
+          <Button type="submit" disabled={loading} className="w-full h-11">
             {loading ? "Signing in…" : "Continue"}
           </Button>
         </form>

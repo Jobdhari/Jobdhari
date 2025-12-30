@@ -27,6 +27,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 
+/* ---------------- Utils ---------------- */
+
 function formatAppliedAt(appliedAt: any): string {
   try {
     const d: Date | undefined = appliedAt?.toDate?.();
@@ -38,7 +40,8 @@ function formatAppliedAt(appliedAt: any): string {
 }
 
 /**
- * Minimal completeness gate (we can expand later when resume parsing arrives)
+ * Minimal completeness gate
+ * (can expand later when resume parsing is added)
  */
 function isProfileComplete(p: CandidateProfile | null): boolean {
   if (!p) return false;
@@ -46,7 +49,8 @@ function isProfileComplete(p: CandidateProfile | null): boolean {
   const hasName = typeof p.fullName === "string" && p.fullName.trim().length > 0;
   const hasPhone = typeof p.phone === "string" && p.phone.trim().length >= 8;
   const hasLocation =
-    typeof p.currentLocation === "string" && p.currentLocation.trim().length > 0;
+    typeof p.currentLocation === "string" &&
+    p.currentLocation.trim().length > 0;
 
   const hasPreferredRoles =
     Array.isArray(p.preferredRoles) && p.preferredRoles.length > 0;
@@ -60,12 +64,13 @@ function isProfileComplete(p: CandidateProfile | null): boolean {
   return hasName && hasPhone && hasLocation && hasPreferredRoles && hasExp;
 }
 
+/* ---------------- Component ---------------- */
+
 export default function DashboardClient() {
   const router = useRouter();
 
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
-
   const [gateReady, setGateReady] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -73,7 +78,7 @@ export default function DashboardClient() {
   const [jobsMap, setJobsMap] = useState<Map<string, any>>(new Map());
   const [error, setError] = useState<string | null>(null);
 
-  // Auth listener
+  /* ---------- Auth listener ---------- */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -82,14 +87,15 @@ export default function DashboardClient() {
     return () => unsub();
   }, []);
 
-  // Auth + Profile gate (single place that decides redirects)
+  /* ---------- Auth + Profile gate ---------- */
   useEffect(() => {
     const runGate = async () => {
       if (!authReady) return;
 
-      // Not logged in -> go to canonical login with redirect back
       if (!user) {
-        router.replace("/login?role=candidate&redirect=/candidate/dashboard");
+        router.replace(
+          "/login?role=candidate&redirect=/candidate/dashboard"
+        );
         return;
       }
 
@@ -97,22 +103,24 @@ export default function DashboardClient() {
         const profile = await getCandidateProfile(user.uid);
 
         if (!isProfileComplete(profile)) {
-          router.replace("/candidate/profile/edit?redirect=/candidate/dashboard");
+          router.replace(
+            "/candidate/profile/edit?redirect=/candidate/dashboard"
+          );
           return;
         }
 
-        // Gate passed
         setGateReady(true);
       } catch {
-        // If profile read fails, treat as incomplete and send to edit
-        router.replace("/candidate/profile/edit?redirect=/candidate/dashboard");
+        router.replace(
+          "/candidate/profile/edit?redirect=/candidate/dashboard"
+        );
       }
     };
 
     runGate();
   }, [authReady, user, router]);
 
-  // Load applications + job lite data (ONLY after gate passed)
+  /* ---------- Load applications ---------- */
   useEffect(() => {
     const run = async () => {
       if (!authReady || !user || !gateReady) return;
@@ -144,6 +152,7 @@ export default function DashboardClient() {
     });
   }, [apps, jobsMap]);
 
+  /* ---------- Logout ---------- */
   async function handleLogout() {
     try {
       await signOut(auth);
@@ -153,17 +162,21 @@ export default function DashboardClient() {
     }
   }
 
-  // While gating/redirecting, keep calm
+  /* ---------- Render ---------- */
+
   if (!authReady || !gateReady) {
     return <div className="p-6">Loading...</div>;
   }
 
   return (
     <div className="p-4 md:p-6 space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">My Applications</h1>
-          <p className="text-sm text-muted-foreground">Jobs you have applied to.</p>
+          <p className="text-sm text-muted-foreground">
+            Jobs you have applied to.
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -171,7 +184,7 @@ export default function DashboardClient() {
             <Link href="/jobs">Browse jobs</Link>
           </Button>
 
-          <Button variant="ghost" onClick={handleLogout}>
+          <Button variant="outline" onClick={handleLogout}>
             Logout
           </Button>
         </div>
@@ -187,7 +200,9 @@ export default function DashboardClient() {
       )}
 
       {loading ? (
-        <div className="text-sm text-muted-foreground">Loading applications…</div>
+        <div className="text-sm text-muted-foreground">
+          Loading applications…
+        </div>
       ) : rows.length === 0 ? (
         <Card className="p-6">
           <div className="space-y-2">
@@ -208,18 +223,18 @@ export default function DashboardClient() {
             <Card key={app.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
-                  <div className="font-medium">{job?.title ?? "Job"}</div>
+                  <div className="font-medium">
+                    {job?.title ?? "Job"}
+                  </div>
                   <div className="text-sm text-muted-foreground">
                     {(job?.companyName ?? "Company") +
                       (job?.location ? ` • ${job.location}` : "") +
                       (job?.pincode ? ` • ${job.pincode}` : "")}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {formatAppliedAt(app.appliedAt) ? (
-                      <>Applied on {formatAppliedAt(app.appliedAt)}</>
-                    ) : (
-                      <>Applied</>
-                    )}
+                    {formatAppliedAt(app.appliedAt)
+                      ? `Applied on ${formatAppliedAt(app.appliedAt)}`
+                      : "Applied"}
                   </div>
                 </div>
 
