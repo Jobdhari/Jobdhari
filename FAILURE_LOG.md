@@ -720,3 +720,44 @@ Always validate navigation before UI polish.
 ### Prevention Rule
 - Login UI must be **locked before** proceeding to auth behavior changes
 - No visual tweaks to login page without a dedicated DEV entry
+
+## FAIL-2025-12-31-02 — Candidate profile save fails with "Missing or insufficient permissions"
+
+**Status:** ✅ Resolved  
+**Fixed In:** DEV-2025-12-31-01
+
+### Symptom
+- `/candidate/profile` showed a runtime error overlay:
+  `FirebaseError: Missing or insufficient permissions.`
+- Name/Phone could not be saved; profile always showed “Not provided”.
+
+### Root Cause (confirmed)
+**Profile data source mismatch** (split-brain):
+- Some code was reading/writing profile at `candidateProfiles/{uid}`
+- Other code was reading/writing profile at `users/{uid}.candidateProfile` (canonical)
+
+Because UI attempted reads from a non-canonical path, Firestore rejected the access,
+causing the permissions error even when auth was valid.
+
+### Fix
+- Enforced **single source of truth** for candidate profile:
+  `users/{uid}.candidateProfile`
+- Removed legacy service that used `candidateProfiles/{uid}`:
+  `src/lib/firebase/candidateService.ts` (deleted)
+- Ensured all profile reads/writes use:
+  `src/lib/firebase/candidateProfileService.ts`
+
+### What we tried (failed attempts / misleading signals)
+- Adding/updating Firestore rules for `candidateProfiles/{uid}` (did not help because UI pathing was wrong)
+- Tweaking `createdAt/updatedAt` behavior (not the root cause)
+- Partial vs full profile payload changes (not the root cause)
+- Duplicate/alternate services (`candidateProfile.store.ts`) and multiple write paths created confusion
+
+### Prevention Rules (DO NOT TOUCH)
+- **Single profile storage location only:** `users/{uid}.candidateProfile`
+- **Never re-introduce** `candidateProfiles` collection for profile data
+- **Never add multiple profile services** (store/service/prefs) that write to different paths
+- When you see “Missing or insufficient permissions”, first confirm:
+  1) which doc path is being read/written
+  2) whether UI reads and writes the *same* canonical location
+## FAIL-2025-12-31-02 — Candidate profile edit fails with Firestore permission error

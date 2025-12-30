@@ -2,14 +2,14 @@
 
 /**
  * @feature Candidate Dashboard
- * @responsibility Show candidate applications in one place (MVP)
+ * @responsibility Show candidate applications in one place
  * @routes /candidate/dashboard
  */
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
 import {
@@ -18,13 +18,17 @@ import {
   listMyApplications,
 } from "@/lib/firebase/candidateApplicationsService";
 
+import {
+  getCandidateProfile,
+  type CandidateProfile,
+} from "@/lib/firebase/candidateProfileService";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 
 function formatAppliedAt(appliedAt: any): string {
   try {
-    // Firestore Timestamp has toDate()
     const d: Date | undefined = appliedAt?.toDate?.();
     if (!d) return "";
     return d.toLocaleDateString();
@@ -33,18 +37,43 @@ function formatAppliedAt(appliedAt: any): string {
   }
 }
 
+/**
+ * Minimal completeness gate (we can expand later when resume parsing arrives)
+ */
+function isProfileComplete(p: CandidateProfile | null): boolean {
+  if (!p) return false;
+
+  const hasName = typeof p.fullName === "string" && p.fullName.trim().length > 0;
+  const hasPhone = typeof p.phone === "string" && p.phone.trim().length >= 8;
+  const hasLocation =
+    typeof p.currentLocation === "string" && p.currentLocation.trim().length > 0;
+
+  const hasPreferredRoles =
+    Array.isArray(p.preferredRoles) && p.preferredRoles.length > 0;
+
+  const hasExp =
+    p.experienceLevel === "fresher" ||
+    p.experienceLevel === "1-3" ||
+    p.experienceLevel === "3-5" ||
+    p.experienceLevel === "5+";
+
+  return hasName && hasPhone && hasLocation && hasPreferredRoles && hasExp;
+}
+
 export default function DashboardClient() {
   const router = useRouter();
 
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
 
+  const [gateReady, setGateReady] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [apps, setApps] = useState<CandidateApplication[]>([]);
   const [jobsMap, setJobsMap] = useState<Map<string, any>>(new Map());
   const [error, setError] = useState<string | null>(null);
 
-  // Auth gate (candidate)
+  // Auth listener
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -53,16 +82,40 @@ export default function DashboardClient() {
     return () => unsub();
   }, []);
 
-  // If not logged in, redirect to candidate login
+  // Auth + Profile gate (single place that decides redirects)
   useEffect(() => {
-    if (!authReady) return;
-    if (!user) router.replace("/candidate/login");
+    const runGate = async () => {
+      if (!authReady) return;
+
+      // Not logged in -> go to canonical login with redirect back
+      if (!user) {
+        router.replace("/login?role=candidate&redirect=/candidate/dashboard");
+        return;
+      }
+
+      try {
+        const profile = await getCandidateProfile(user.uid);
+
+        if (!isProfileComplete(profile)) {
+          router.replace("/candidate/profile/edit?redirect=/candidate/dashboard");
+          return;
+        }
+
+        // Gate passed
+        setGateReady(true);
+      } catch {
+        // If profile read fails, treat as incomplete and send to edit
+        router.replace("/candidate/profile/edit?redirect=/candidate/dashboard");
+      }
+    };
+
+    runGate();
   }, [authReady, user, router]);
 
-  // Load applications + job lite data
+  // Load applications + job lite data (ONLY after gate passed)
   useEffect(() => {
     const run = async () => {
-      if (!authReady || !user) return;
+      if (!authReady || !user || !gateReady) return;
 
       setError(null);
       setLoading(true);
@@ -82,20 +135,26 @@ export default function DashboardClient() {
     };
 
     run();
-  }, [authReady, user]);
+  }, [authReady, user, gateReady]);
 
   const rows = useMemo(() => {
     return apps.map((a) => {
       const job = jobsMap.get(a.jobId);
-      return {
-        app: a,
-        job,
-      };
+      return { app: a, job };
     });
   }, [apps, jobsMap]);
 
-  // While redirecting, keep it calm
-  if (!authReady) {
+  async function handleLogout() {
+    try {
+      await signOut(auth);
+      router.replace("/login?role=candidate");
+    } catch {
+      // no-op
+    }
+  }
+
+  // While gating/redirecting, keep calm
+  if (!authReady || !gateReady) {
     return <div className="p-6">Loading...</div>;
   }
 
@@ -104,14 +163,18 @@ export default function DashboardClient() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">My Applications</h1>
-          <p className="text-sm text-muted-foreground">
-            Jobs you have applied to.
-          </p>
+          <p className="text-sm text-muted-foreground">Jobs you have applied to.</p>
         </div>
 
-        <Button asChild variant="outline">
-          <Link href="/jobs">Browse jobs</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href="/jobs">Browse jobs</Link>
+          </Button>
+
+          <Button variant="ghost" onClick={handleLogout}>
+            Logout
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -145,9 +208,7 @@ export default function DashboardClient() {
             <Card key={app.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
-                  <div className="font-medium">
-                    {job?.title ?? "Job"}
-                  </div>
+                  <div className="font-medium">{job?.title ?? "Job"}</div>
                   <div className="text-sm text-muted-foreground">
                     {(job?.companyName ?? "Company") +
                       (job?.location ? ` • ${job.location}` : "") +

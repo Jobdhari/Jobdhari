@@ -1,25 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
 
-import { auth, db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
+import {
+  getCandidateProfile,
+} from "@/lib/firebase/candidateProfileService";
+
 import { Button } from "@/components/ui/button";
-
-interface CandidateProfile {
-  fullName?: string;
-  email?: string;
-  phone?: string;
-}
 
 export default function CandidateProfileClient() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<CandidateProfile | null>(null);
+  const [profile, setProfile] = useState<{
+    fullName?: string;
+    phone?: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,10 +31,8 @@ export default function CandidateProfileClient() {
       setUser(u);
 
       try {
-        const snap = await getDoc(doc(db, "candidates", u.uid));
-        if (snap.exists()) {
-          setProfile(snap.data() as CandidateProfile);
-        }
+        const p = await getCandidateProfile(u.uid);
+        setProfile(p);
       } finally {
         setLoading(false);
       }

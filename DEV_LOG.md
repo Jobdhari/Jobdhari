@@ -791,3 +791,35 @@ Recent login UX refactor caused the app to hang (“Wait or Reload”) when navi
 
 **Related Failures Fixed:**  
 - FAIL-2025-12-29-02
+## DEV-2025-12-31-01 — Fix candidate profile save + enforce canonical profile storage
+
+**Related Failures:** FAIL-2025-12-31-02
+
+### Summary
+Resolved candidate profile “Missing or insufficient permissions” by eliminating split profile storage paths and enforcing one canonical service + one canonical Firestore location.
+
+### Changes
+- Canonicalized candidate profile location:
+  - ✅ `users/{uid}.candidateProfile` is the only source of truth
+- Removed legacy profile service using `candidateProfiles/{uid}`:
+  - ✅ Deleted `src/lib/firebase/candidateService.ts`
+- Verified all profile reads/writes use:
+  - ✅ `src/lib/firebase/candidateProfileService.ts`
+
+### Why this matters
+Multiple profile storage paths create “split-brain” data, misleading permissions errors, and UI that never reflects saved updates. Canonical storage removes the entire class of failures.
+
+### Guardrails Added/Confirmed
+- One profile location only: `users/{uid}.candidateProfile`
+- One profile service only: `candidateProfileService.ts`
+- Any new profile feature must reuse the same service + location
+## DEV-2025-12-31-01 — Fix candidate profile edit permissions + unify profile writes
+
+**Related Failures:** FAIL-2025-12-31-02
+
+### Summary
+Resolved candidate profile edit failing with Firestore permissions by ensuring profile reads/writes use a single canonical path and service.
+
+### Key Guardrail
+Candidate profile must be stored and updated only under:
+`users/{uid}.candidateProfile`

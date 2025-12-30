@@ -1,10 +1,6 @@
-import { Suspense } from "react";
-import LoginClient from "@/app/login/LoginClient";
+import { redirect } from "next/navigation";
 
-export default function CandidatePage() {
-  return (
-    <Suspense fallback={null}>
-      <LoginClient />
-    </Suspense>
-  );
+export default function CandidateRoot() {
+  // All candidates land on dashboard after login
+  redirect("/candidate/dashboard");
 }

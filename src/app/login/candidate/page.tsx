@@ -1,10 +1,5 @@
-import { Suspense } from "react";
-import LoginClient from "@/app/login/LoginClient";
+import { redirect } from "next/navigation";
 
-export default function CandidateLoginPage() {
-  return (
-    <Suspense fallback={null}>
-      <LoginClient />
-    </Suspense>
-  );
+export default function CandidateLoginRoute() {
+  redirect("/login?role=candidate");
 }
