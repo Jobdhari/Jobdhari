@@ -766,3 +766,28 @@ Recent login UX refactor caused the app to hang (“Wait or Reload”) when navi
 - Navigation to Candidate/Employer login routes is stable again.
 - Home page buttons no longer hang.
 - Ready to continue candidate flow work safely.
+## DEV-2025-12-30-01 — Candidate login UI finalized and stabilized
+
+**Area:** Candidate Auth / Login  
+**Scope:** UI + navigation (no backend logic changes)
+
+### What was done
+- Restored and stabilized Candidate Login page rendering
+- Finalized login card layout and spacing
+- Added Google sign-in button with icon
+- Ensured Email + Password login is visible and usable
+- Added “Forgot password” link
+- Added “New to JobDhari? Create an account” link
+- Ensured login page no longer disappears or renders blank after edits
+
+### Result
+- Candidate login page loads consistently
+- All expected entry paths are visible and clear
+- UI is stable enough to proceed with signup and dashboard wiring
+
+### Notes
+- UI is now considered **locked**
+- Further work should focus on behavior (errors, redirects), not layout
+
+**Related Failures Fixed:**  
+- FAIL-2025-12-29-02

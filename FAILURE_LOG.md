@@ -693,3 +693,30 @@ Reverted login page to last known working version.
 ### Prevention Rule
 Never refactor auth/login UX and routing together.
 Always validate navigation before UI polish.
+## FAIL-2025-12-29-02 — Candidate login UI breaking / missing actions
+
+**Status:** ✅ Resolved  
+**Fixed In:** DEV-2025-12-30-01  
+**Severity:** P1
+
+### Symptom
+- Candidate login page intermittently rendered incomplete or blank
+- Google login button missing after some changes
+- “Create account” link disappeared
+- Layout spacing became inconsistent
+- Login page occasionally failed to load after edits
+
+### Root Cause
+- Multiple uncommitted UI changes during login refactors
+- Client/server boundary edits without locking a stable UI version
+- Login page modified while auth behavior was still evolving
+
+### Fix
+- Restored last known stable login structure
+- Rebuilt Candidate Login UI in a single controlled pass
+- Finalized layout, spacing, and entry points
+- Verified Google, email/password, forgot password, and signup links
+
+### Prevention Rule
+- Login UI must be **locked before** proceeding to auth behavior changes
+- No visual tweaks to login page without a dedicated DEV entry
