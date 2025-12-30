@@ -846,3 +846,18 @@ Candidate profile must be stored and updated only under:
 
 ### Related Failures
 - Fixes **FAIL-2025-12-31-02**
+## DEV-2025-12-31-01 — Fix candidate profile save permissions (canonical users/{uid}.candidateProfile)
+
+**Date:** 2025-12-31  
+**Related Failures:** FAIL-2025-12-31-02
+
+### Change
+- Standardized candidate profile writes to canonical path and allowed update shape
+
+### Files
+- src/lib/firebase/candidateProfileService.ts
+- src/app/candidate/profile/edit/page.tsx (write shape: { candidateProfile: { ... } })
+
+### Result
+- Candidate name/phone saves successfully
+- No “Missing or insufficient permissions” during profile edit

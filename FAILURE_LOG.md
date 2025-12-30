@@ -751,3 +751,29 @@ causing the permissions error even when auth was valid.
   1) which doc path is being read/written
   2) whether UI reads and writes the *same* canonical location
 ## FAIL-2025-12-31-02 — Candidate profile edit fails with Firestore permission error
+## FAIL-2025-12-31-02 — Candidate profile edit fails with Firestore permission error
+
+**Date:** 2025-12-31  
+**Status:** ✅ Resolved  
+**Fixed In:** DEV-2025-12-31-01
+
+### Symptom
+- Editing candidate profile (name/phone) showed:
+  “Missing or insufficient permissions”
+- Data did not persist after save
+- Profile continued to show “Not provided”
+
+### Root Cause (confirmed)
+Profile path mismatch (“split-brain”):
+- Some code paths attempted to use `candidateProfiles/{uid}`
+- Canonical storage/rules allow updates on `users/{uid}` **only** when the top-level changed key is `candidateProfile`
+
+This caused writes to hit the wrong place / wrong shape and fail under rules.
+
+### Fix
+- Enforced canonical profile storage: `users/{uid}.candidateProfile`
+- Ensured edit form writes only the allowed top-level key (`candidateProfile`) via the canonical service
+
+### Prevention Rule
+Never maintain two profile storage locations.
+Before changing Firestore rules, confirm UI reads and writes the same Firestore path and shape.
