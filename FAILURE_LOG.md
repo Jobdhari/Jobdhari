@@ -649,16 +649,6 @@ Never tighten Firestore rules or change schema/query fields without:
 2) recording the change as a DEV entry before implementation.
 FAIL-2025-12-21-02 — Pre-push build gate blocked push due to non-MVP broken routes/imports
 
-Date: 2025-12-21 22:xx IST
-Severity: High
-Status: ⛔ Open
-Fixed In: DEV-2025-12-21-02
-In FAIL-2025-12-21-02, add under Symptom:
-Build failed due to userPreferences.ts invalid import line
-Build failed due to missing external dependency twilio imported by /send-test/route.ts
-And under Fix:
-Replaced userPreferences.ts with canonical imports from @/lib/firebase
-Disabled /send-test route to remove twilio dependency from MVP build
 ## FAIL-2025-12-26-01 — Candidate profile save blocked by Firestore rules
 
 **Date:** 2025-12-26  

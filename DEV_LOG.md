@@ -823,3 +823,26 @@ Resolved candidate profile edit failing with Firestore permissions by ensuring p
 ### Key Guardrail
 Candidate profile must be stored and updated only under:
 `users/{uid}.candidateProfile`
+## DEV-2025-12-31-01 — Canonical candidate profile save & login stabilization
+
+### Scope
+- Candidate profile edit
+- Login → dashboard routing
+- Firestore profile persistence
+
+### Changes
+- Enforced **single canonical profile location**:
+  `users/{uid}.candidateProfile`
+- Removed legacy/duplicate profile write paths
+- Updated `upsertCandidateProfile` to accept `Partial<CandidateProfile>`
+- Ensured UI edit flow writes **only allowed keys**
+- Stabilized candidate login redirect to `/candidate/dashboard`
+
+### Outcome
+- Candidate name and phone now save correctly
+- No Firestore permission errors
+- Profile reads and writes use the same path
+- Candidate onboarding unblocked
+
+### Related Failures
+- Fixes **FAIL-2025-12-31-02**
