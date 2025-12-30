@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   onAuthStateChanged,
   sendEmailVerification,
 } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-
 import { auth, db } from "@/lib/firebase";
 
-export default function VerifyPage() {
+export default function VerifyEmailClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect =
+    searchParams.get("redirect") || "/candidate/dashboard";
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,19 +41,19 @@ export default function VerifyPage() {
           router.replace(
             snap.data()?.role === "employer"
               ? "/employer/dashboard"
-              : "/candidate/dashboard"
+              : redirect
           );
         } else {
           setLoading(false);
         }
-      } catch (err) {
+      } catch {
         setError("Verification failed. Please try again.");
         setLoading(false);
       }
     });
 
     return () => unsub();
-  }, [router]);
+  }, [router, redirect]);
 
   const resendVerification = async () => {
     if (!auth.currentUser) return;
@@ -78,7 +81,7 @@ export default function VerifyPage() {
       {error && <p className="text-red-600">{error}</p>}
 
       <p className="text-sm text-muted-foreground">
-        We’ve sent a verification link to your email address.  
+        We’ve sent a verification link to your email address.
         Please verify to continue.
       </p>
 
