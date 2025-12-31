@@ -2,7 +2,6 @@
  * @feature Job Application
  * @responsibility Apply gate (auth check → profile check → read-only confirmation)
  * @routes /apply/[id]
- * @files src/app/apply/[id]/page.tsx
  */
 
 "use client";
@@ -88,7 +87,12 @@ export default function ApplyGatePage() {
         <p className="mt-2 text-muted-foreground">
           This job may be closed or unpublished.
         </p>
-        <Button className="mt-4" onClick={() => router.push("/jobs")}>
+
+        {/* ✅ Candidate stays inside candidate */}
+        <Button
+          className="mt-4"
+          onClick={() => router.push("/candidate/jobs")}
+        >
           Browse jobs
         </Button>
       </div>
@@ -107,7 +111,7 @@ export default function ApplyGatePage() {
      No profile
   -------------------------- */
   if (!hasProfile) {
-    router.replace(`/candidate/profile?redirect=/apply/${jobId}`);
+    router.replace(`/candidate/profile/edit?redirect=/apply/${jobId}`);
     return null;
   }
 
@@ -125,9 +129,13 @@ export default function ApplyGatePage() {
         </span>.
       </p>
 
-      {/* ✅ ONLY CHANGE IS HERE */}
-      <Button onClick={() => router.push(`/jobs/${jobId}?applied=1`)}>
-        Back to job
+      {/* ✅ FIXED: go to Applications, not public job */}
+      <Button
+        onClick={() =>
+          router.push("/candidate/dashboard?applied=1")
+        }
+      >
+        Go to My Applications
       </Button>
     </div>
   );

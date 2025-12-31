@@ -19,7 +19,7 @@ export default function ApplyWizardStubPage() {
 
       <div className="flex gap-2">
         <Button asChild>
-          <Link href="/jobs">Browse jobs</Link>
+          <Link href="/candidate/jobs">Browse jobs</Link>
         </Button>
         <Button variant="outline" asChild>
           <Link href="/">Home</Link>

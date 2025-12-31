@@ -1,49 +1,61 @@
 "use client";
 
-import React from "react";
-import { Toaster } from "sonner";
+import { ReactNode } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-export default function ClientLayout({ children }: { children: React.ReactNode }) {
+/**
+ * @layout ClientLayout
+ * @responsibility Global client header + page wrapper
+ * @note Hides public "Jobs" link inside /candidate routes
+ */
+
+export default function ClientLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const pathname = usePathname();
+
+  // ✅ Detect candidate area
+  const inCandidate = pathname.startsWith("/candidate");
+
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 text-gray-900 font-sans transition-all duration-200">
-      <header className="w-full border-b border-gray-200 bg-white/60 backdrop-blur-md fixed top-0 z-50">
-        <div className="max-w-7xl mx-auto flex justify-between items-center px-4 sm:px-6 lg:px-8 h-16">
-          <h1>
-            <a
-              href="/"
-              className="text-xl font-bold text-brand-orange hover:opacity-90 transition"
-            >
-              JobDhari
-            </a>
-          </h1>
+    <div className="min-h-screen flex flex-col">
+      {/* ---------------- Header ---------------- */}
+      <header className="h-14 border-b bg-white">
+        <div className="mx-auto max-w-7xl h-full px-4 flex items-center justify-between">
+          {/* Left: Brand */}
+          <Link href="/" className="text-lg font-semibold">
+            JobDhari
+          </Link>
 
-          <nav className="hidden md:flex space-x-8 text-gray-700">
-            <a href="/" className="hover:text-brand-blue">
-              Home
-            </a>
-            <a href="/jobs" className="hover:text-brand-blue">
-              Jobs
-            </a>
-            <a href="/login/candidate" className="hover:text-brand-blue">
-              Candidate
-            </a>
-            <a href="/login/employer" className="hover:text-brand-blue">
-              Employer
-            </a>
+          {/* Right: Global nav */}
+          <nav className="flex items-center gap-4 text-sm">
+            {/* ✅ HIDE public Jobs when inside candidate */}
+            {!inCandidate && (
+              <Link
+                href="/jobs"
+                className="hover:text-brand-blue transition"
+              >
+                Jobs
+              </Link>
+            )}
+
+            <Link
+              href="/login"
+              className="hover:text-brand-blue transition"
+            >
+              Login
+            </Link>
           </nav>
         </div>
       </header>
 
-      <main className="flex-1 pt-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+      {/* ---------------- Page ---------------- */}
+      <main className="flex-1">
         {children}
       </main>
-
-      <footer className="w-full border-t border-gray-200 mt-10 py-6 text-center text-sm text-gray-500">
-        © {new Date().getFullYear()} JobDhari. All rights reserved.
-      </footer>
-
-      {/* ✅ Global Toaster */}
-      <Toaster richColors position="top-right" />
     </div>
   );
 }

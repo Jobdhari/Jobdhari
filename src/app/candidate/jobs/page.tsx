@@ -1,9 +1,8 @@
 // src/app/candidate/jobs/page.tsx
+"use client";
 
-import { redirect } from "next/navigation";
+import JobsPageClient from "@/app/jobs/JobsPageClient";
 
 export default function CandidateJobsPage() {
-  // For now, just send candidates to the main jobs listing
-  redirect("/jobs");
-  return null;
+  return <JobsPageClient />;
 }

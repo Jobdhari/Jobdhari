@@ -2,12 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged, signOut, User } from "firebase/auth";
+import { onAuthStateChanged, User } from "firebase/auth";
 
 import { auth } from "@/lib/firebase";
-import {
-  getCandidateProfile,
-} from "@/lib/firebase/candidateProfileService";
+import { getCandidateProfile } from "@/lib/firebase/candidateProfileService";
 
 import { Button } from "@/components/ui/button";
 
@@ -41,42 +39,18 @@ export default function CandidateProfileClient() {
     return () => unsub();
   }, [router]);
 
-  async function handleLogout() {
-    try {
-      await signOut(auth);
-      router.replace("/login?role=candidate");
-    } catch {
-      // no-op
-    }
-  }
-
   if (loading) {
     return <div className="p-6">Loading profile…</div>;
   }
 
   return (
     <div className="mx-auto max-w-3xl p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Candidate Profile</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage your personal and professional details
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => router.push("/candidate/profile/edit")}
-          >
-            Edit Profile
-          </Button>
-
-          <Button variant="outline" onClick={handleLogout}>
-            Logout
-          </Button>
-        </div>
+      {/* Header – content only */}
+      <div>
+        <h1 className="text-2xl font-semibold">Candidate Profile</h1>
+        <p className="text-sm text-muted-foreground">
+          Manage your personal and professional details
+        </p>
       </div>
 
       {/* Profile Card */}
@@ -100,6 +74,14 @@ export default function CandidateProfileClient() {
           <div className="font-medium">
             {profile?.phone || "Not provided"}
           </div>
+        </div>
+
+        <div className="pt-2">
+          <Button
+            onClick={() => router.push("/candidate/profile/edit")}
+          >
+            Edit Profile
+          </Button>
         </div>
       </div>
     </div>

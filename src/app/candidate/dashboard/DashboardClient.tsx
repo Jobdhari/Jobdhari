@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged, signOut, User } from "firebase/auth";
+import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
 import {
@@ -18,10 +18,7 @@ import {
   listMyApplications,
 } from "@/lib/firebase/candidateApplicationsService";
 
-import {
-  getCandidateProfile,
-  type CandidateProfile,
-} from "@/lib/firebase/candidateProfileService";
+import { getCandidateProfile } from "@/lib/firebase/candidateProfileService";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,28 +37,13 @@ function formatAppliedAt(appliedAt: any): string {
 }
 
 /**
- * Minimal completeness gate
- * (can expand later when resume parsing is added)
+ * Profile completeness (CURRENT STAGE)
+ * Only fields that actually exist today
  */
-function isProfileComplete(p: CandidateProfile | null): boolean {
-  if (!p) return false;
-
-  const hasName = typeof p.fullName === "string" && p.fullName.trim().length > 0;
-  const hasPhone = typeof p.phone === "string" && p.phone.trim().length >= 8;
-  const hasLocation =
-    typeof p.currentLocation === "string" &&
-    p.currentLocation.trim().length > 0;
-
-  const hasPreferredRoles =
-    Array.isArray(p.preferredRoles) && p.preferredRoles.length > 0;
-
-  const hasExp =
-    p.experienceLevel === "fresher" ||
-    p.experienceLevel === "1-3" ||
-    p.experienceLevel === "3-5" ||
-    p.experienceLevel === "5+";
-
-  return hasName && hasPhone && hasLocation && hasPreferredRoles && hasExp;
+function isProfileComplete(p: any): boolean {
+  const fullName = String(p?.fullName ?? p?.name ?? "").trim();
+  const phone = String(p?.phone ?? "").trim();
+  return fullName.length > 0 && phone.length >= 10;
 }
 
 /* ---------------- Component ---------------- */
@@ -102,7 +84,7 @@ export default function DashboardClient() {
       try {
         const profile = await getCandidateProfile(user.uid);
 
-        if (!isProfileComplete(profile)) {
+        if (!profile || !isProfileComplete(profile)) {
           router.replace(
             "/candidate/profile/edit?redirect=/candidate/dashboard"
           );
@@ -152,16 +134,6 @@ export default function DashboardClient() {
     });
   }, [apps, jobsMap]);
 
-  /* ---------- Logout ---------- */
-  async function handleLogout() {
-    try {
-      await signOut(auth);
-      router.replace("/login?role=candidate");
-    } catch {
-      // no-op
-    }
-  }
-
   /* ---------- Render ---------- */
 
   if (!authReady || !gateReady) {
@@ -170,24 +142,12 @@ export default function DashboardClient() {
 
   return (
     <div className="p-4 md:p-6 space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">My Applications</h1>
-          <p className="text-sm text-muted-foreground">
-            Jobs you have applied to.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline">
-            <Link href="/jobs">Browse jobs</Link>
-          </Button>
-
-          <Button variant="outline" onClick={handleLogout}>
-            Logout
-          </Button>
-        </div>
+      {/* Page title only – navigation comes from candidate/layout.tsx */}
+      <div>
+        <h1 className="text-xl font-semibold">My Applications</h1>
+        <p className="text-sm text-muted-foreground">
+          Jobs you have applied to.
+        </p>
       </div>
 
       {error && (
@@ -210,9 +170,11 @@ export default function DashboardClient() {
             <div className="text-sm text-muted-foreground">
               Start applying to jobs and they’ll appear here.
             </div>
+
+            {/* ✅ FIXED: Button + candidate jobs */}
             <div className="pt-2">
               <Button asChild>
-                <Link href="/jobs">Find jobs</Link>
+                <Link href="/candidate/jobs">Find jobs</Link>
               </Button>
             </div>
           </div>
@@ -238,12 +200,7 @@ export default function DashboardClient() {
                   </div>
                 </div>
 
-                <div className="flex flex-col items-end gap-2">
-                  <Badge variant="secondary">Applied</Badge>
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/jobs/${app.jobId}`}>View job</Link>
-                  </Button>
-                </div>
+                <Badge variant="secondary">Applied</Badge>
               </div>
             </Card>
           ))}

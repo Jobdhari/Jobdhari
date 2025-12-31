@@ -1,6 +1,6 @@
 // src/lib/firebase/jobService.ts
 
-import { auth, db } from "@/lib/firebase";;
+import { db } from "@/lib/firebase";
 import {
   collection,
   query,
@@ -43,16 +43,15 @@ export type JobWithId = Job & {
 };
 
 // ─────────────────────────────────────────────────────────────
-// Basic job helpers
-// (These are “generic”; if your app doesn’t use some of them,
-// that’s totally fine – they just sit here ready for later.)
+// Job CRUD (ONLY JOBS — NO APPLICATIONS HERE)
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Create a new job in Firestore (for employers).
+ * Create a new job (employer)
  */
 export async function createJob(data: Job) {
   const jobsRef = collection(db, "jobs");
+
   const payload: Job = {
     ...data,
     createdAt: Timestamp.now(),
@@ -65,7 +64,7 @@ export async function createJob(data: Job) {
 }
 
 /**
- * Get a single job by id.
+ * Get job by id
  */
 export async function getJobById(jobId: string): Promise<JobWithId | null> {
   if (!jobId) return null;
@@ -82,7 +81,7 @@ export async function getJobById(jobId: string): Promise<JobWithId | null> {
 }
 
 /**
- * Get all published jobs (for the /jobs page).
+ * Get all published jobs (public / jobs pages)
  */
 export async function getAllPublishedJobs(): Promise<JobWithId[]> {
   const jobsRef = collection(db, "jobs");
@@ -95,20 +94,14 @@ export async function getAllPublishedJobs(): Promise<JobWithId[]> {
 
   const snap = await getDocs(q);
 
-  const jobs: JobWithId[] = [];
-  snap.forEach((docSnap) => {
-    const data = docSnap.data() as Job;
-    jobs.push({
-      id: docSnap.id,
-      ...data,
-    });
-  });
-
-  return jobs;
+  return snap.docs.map((docSnap) => ({
+    id: docSnap.id,
+    ...(docSnap.data() as Job),
+  }));
 }
 
 /**
- * Get jobs posted by a specific employer.
+ * Get jobs posted by employer
  */
 export async function getEmployerJobs(
   employerUid: string
@@ -123,174 +116,21 @@ export async function getEmployerJobs(
   );
 
   const snap = await getDocs(q);
-  const jobs: JobWithId[] = [];
 
-  snap.forEach((docSnap) => {
-    const data = docSnap.data() as Job;
-    jobs.push({
-      id: docSnap.id,
-      ...data,
-    });
-  });
-
-  return jobs;
+  return snap.docs.map((docSnap) => ({
+    id: docSnap.id,
+    ...(docSnap.data() as Job),
+  }));
 }
 
 /**
- * Update a job (for employer editing).
+ * Update job
  */
 export async function updateJob(jobId: string, partial: Partial<Job>) {
   const jobRef = doc(db, "jobs", jobId);
+
   await updateDoc(jobRef, {
     ...partial,
     updatedAt: Timestamp.now(),
   });
-}
-
-// ─────────────────────────────────────────────────────────────
-// Applications (candidate ↔ job)
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Create an application when a candidate applies to a job.
- * Collection: "applications"
- */
-export async function applyToJob(
-  jobId: string,
-  candidateUid: string,
-  extra: {
-    candidateEmail?: string;
-    candidateName?: string;
-  } = {}
-) {
-  if (!jobId || !candidateUid) {
-    throw new Error("jobId and candidateUid are required");
-  }
-
-  const applicationsRef = collection(db, "applications");
-
-  const payload = {
-    jobId,
-    candidateUid,
-    candidateEmail: extra.candidateEmail ?? null,
-    candidateName: extra.candidateName ?? null,
-    status: "applied", // applied | shortlisted | rejected | hired etc.
-    createdAt: Timestamp.now(),
-  };
-
-  await addDoc(applicationsRef, payload);
-}
-
-/**
- * Check if candidate already applied to a job
- * (useful if you want to disable the "Apply" button).
- */
-export async function hasCandidateAppliedToJob(
-  jobId: string,
-  candidateUid: string
-): Promise<boolean> {
-  if (!jobId || !candidateUid) return false;
-
-  const applicationsRef = collection(db, "applications");
-
-  const q = query(
-    applicationsRef,
-    where("jobId", "==", jobId),
-    where("candidateUid", "==", candidateUid)
-  );
-
-  const snap = await getDocs(q);
-  return !snap.empty;
-}
-
-// ─────────────────────────────────────────────────────────────
-// My Jobs helper (this is what we need for the /my-jobs page)
-// ─────────────────────────────────────────────────────────────
-
-export type CandidateJobApplication = {
-  id: string; // application document id
-  status: string;
-  appliedAt?: Date;
-  jobId?: string;
-  job?: {
-    id: string;
-    title: string;
-    companyName?: string;
-    location?: string;
-    employmentType?: string;
-  } | null;
-};
-
-/**
- * Get all applications for a specific candidate,
- * and include the related job data.
- */
-export async function getCandidateApplications(
-  candidateUid: string
-): Promise<CandidateJobApplication[]> {
-  if (!candidateUid) return [];
-
-  try {
-    const applicationsRef = collection(db, "applications");
-
-    // applications where this user is the candidate
-    const q = query(
-      applicationsRef,
-      where("candidateUid", "==", candidateUid),
-      orderBy("createdAt", "desc")
-    );
-
-    const snap = await getDocs(q);
-
-    const apps: CandidateJobApplication[] = [];
-    const jobPromises: Promise<void>[] = [];
-
-    snap.forEach((docSnap) => {
-      const data = docSnap.data() as any;
-
-      const base: CandidateJobApplication = {
-        id: docSnap.id,
-        status: data.status ?? "applied",
-        appliedAt:
-          data.createdAt instanceof Timestamp
-            ? data.createdAt.toDate()
-            : undefined,
-        jobId: data.jobId,
-        job: null,
-      };
-
-      apps.push(base);
-
-      if (data.jobId) {
-        jobPromises.push(
-          (async () => {
-            try {
-              const jobRef = doc(db, "jobs", data.jobId);
-              const jobSnap = await getDoc(jobRef);
-
-              if (jobSnap.exists()) {
-                const jobData = jobSnap.data() as any;
-                base.job = {
-                  id: jobSnap.id,
-                  title: jobData.title ?? "Untitled job",
-                  companyName: jobData.companyName ?? "Company not specified",
-                  location: jobData.location ?? jobData.city ?? "",
-                  employmentType: jobData.employmentType ?? jobData.workType,
-                };
-              }
-            } catch (err) {
-              console.error("Error loading job for application", err);
-            }
-          })()
-        );
-      }
-    });
-
-    await Promise.all(jobPromises);
-
-    return apps;
-  } catch (error) {
-    console.error("Error fetching candidate applications:", error);
-    return [];
-  }
 }

@@ -14,6 +14,10 @@ import {
 } from "firebase/auth";
 
 import { auth } from "@/lib/firebase";
+import {
+  getCandidateProfile,
+} from "@/lib/firebase/candidateProfileService";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -22,22 +26,10 @@ import { Card } from "@/components/ui/card";
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 48 48" aria-hidden="true" {...props}>
-      <path
-        fill="#EA4335"
-        d="M24 9.5c3.2 0 5.9 1.1 8.1 3.1l6-6C34.3 2.9 29.5 1 24 1 14.6 1 6.5 6.4 2.7 14.3l7 5.4C11.6 13.6 17.3 9.5 24 9.5z"
-      />
-      <path
-        fill="#4285F4"
-        d="M46.1 24.5c0-1.6-.1-2.7-.4-4H24v8h12.6c-.3 2-1.8 5-5.1 7.1l7.8 6c4.6-4.2 7.3-10.4 7.3-17.1z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M9.7 28.7c-.5-1.4-.8-2.8-.8-4.2s.3-2.8.8-4.2l-7-5.4C1.3 18 1 21 1 24.5s.3 6.5 1.7 9.6l7-5.4z"
-      />
-      <path
-        fill="#34A853"
-        d="M24 47c5.5 0 10.1-1.8 13.5-4.9l-7.8-6c-2.1 1.4-4.9 2.4-8.7 2.4-6.7 0-12.4-4.1-14.3-10l-7 5.4C6.5 41.6 14.6 47 24 47z"
-      />
+      <path fill="#EA4335" d="M24 9.5c3.2 0 5.9 1.1 8.1 3.1l6-6C34.3 2.9 29.5 1 24 1 14.6 1 6.5 6.4 2.7 14.3l7 5.4C11.6 13.6 17.3 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-2.7-.4-4H24v8h12.6c-.3 2-1.8 5-5.1 7.1l7.8 6c4.6-4.2 7.3-10.4 7.3-17.1z" />
+      <path fill="#FBBC05" d="M9.7 28.7c-.5-1.4-.8-2.8-.8-4.2s.3-2.8.8-4.2l-7-5.4C1.3 18 1 21 1 24.5s.3 6.5 1.7 9.6l7-5.4z" />
+      <path fill="#34A853" d="M24 47c5.5 0 10.1-1.8 13.5-4.9l-7.8-6c-2.1 1.4-4.9 2.4-8.7 2.4-6.7 0-12.4-4.1-14.3-10l-7 5.4C6.5 41.6 14.6 47 24 47z" />
     </svg>
   );
 }
@@ -56,6 +48,15 @@ function friendlyAuthError(err: unknown) {
   return e?.message || "Login failed.";
 }
 
+/* ---------- FIXED profile completeness ---------- */
+function isCandidateProfileComplete(p: any) {
+  // supports legacy field name too
+  const fullName = String(p?.fullName ?? p?.name ?? "").trim();
+  const phone = String(p?.phone ?? "").trim();
+
+  return fullName.length > 0 && phone.length >= 10;
+}
+
 /* ---------- Component ---------- */
 export default function LoginClient() {
   const router = useRouter();
@@ -66,7 +67,7 @@ export default function LoginClient() {
     [searchParams]
   );
 
-  const redirectTo = useMemo(
+  const redirect = useMemo(
     () => searchParams.get("redirect") || "",
     [searchParams]
   );
@@ -74,6 +75,22 @@ export default function LoginClient() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  async function routeCandidate(uid: string) {
+    const fallbackRedirect = "/candidate/dashboard";
+    const next = redirect || fallbackRedirect;
+
+    const profile = await getCandidateProfile(uid);
+
+    if (!profile || !isCandidateProfileComplete(profile)) {
+      router.replace(
+        `/candidate/profile/edit?redirect=${encodeURIComponent(next)}`
+      );
+      return;
+    }
+
+    router.replace(next);
+  }
 
   async function handleLogin() {
     if (loading) return;
@@ -86,10 +103,14 @@ export default function LoginClient() {
 
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, cleanEmail, password);
+      const cred = await signInWithEmailAndPassword(
+        auth,
+        cleanEmail,
+        password
+      );
 
-      if (redirectTo) {
-        router.replace(redirectTo);
+      if (redirect && role !== "candidate") {
+        router.replace(redirect);
         return;
       }
 
@@ -98,7 +119,7 @@ export default function LoginClient() {
         return;
       }
 
-      router.replace("/candidate/dashboard");
+      await routeCandidate(cred.user.uid);
     } catch (err) {
       toast.error(friendlyAuthError(err));
     } finally {
@@ -111,10 +132,10 @@ export default function LoginClient() {
     setLoading(true);
 
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
+      const cred = await signInWithPopup(auth, new GoogleAuthProvider());
 
-      if (redirectTo) {
-        router.replace(redirectTo);
+      if (redirect && role !== "candidate") {
+        router.replace(redirect);
         return;
       }
 
@@ -123,7 +144,7 @@ export default function LoginClient() {
         return;
       }
 
-      router.replace("/candidate/dashboard");
+      await routeCandidate(cred.user.uid);
     } catch (err) {
       toast.error(friendlyAuthError(err));
     } finally {
@@ -152,7 +173,6 @@ export default function LoginClient() {
           {role === "employer" ? "Employer Login" : "Candidate Login"}
         </h1>
 
-        {/* ✅ FIXED GOOGLE BUTTON */}
         <Button
           type="button"
           variant="outline"
