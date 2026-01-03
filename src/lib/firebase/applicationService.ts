@@ -1,124 +1,116 @@
-/**
- * @feature Job Application
- * @responsibility Application read/write logic (duplicate-check + persistence)
- * @files src/lib/firebase/applicationService.ts
- */
-
 // src/lib/firebase/applicationService.ts
 
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import {
-  addDoc,
   collection,
+  doc,
   getDocs,
-  limit,
-  orderBy,
   query,
   serverTimestamp,
+  setDoc,
   where,
+  Timestamp,
 } from "firebase/firestore";
 
-export type ApplicationStatus = "applied";
+/**
+ * =========================
+ * Types
+ * =========================
+ */
 
-/* ======================================================
-   READ: Check if user already applied to a job
-====================================================== */
-export async function hasAppliedToJob(params: {
+export type JobSummaryForApplication = {
+  id: string;
+  title: string;
+  companyName?: string;
+  location?: string;
+  category?: string;
+};
+
+export type JobApplicationDoc = {
   jobId: string;
   userId: string;
-}) {
-  const { jobId, userId } = params;
+  status: "applied";
+  appliedAt: Timestamp | ReturnType<typeof serverTimestamp>;
+};
 
-  if (!jobId) throw new Error("Missing jobId");
-  if (!userId) throw new Error("Missing userId");
-
-  const q = query(
-    collection(db, "applications"),
-    where("jobId", "==", jobId),
-    where("userId", "==", userId),
-    limit(1)
-  );
-
-  const snap = await getDocs(q);
-  return !snap.empty;
-}
-
-/* ======================================================
-   WRITE: Apply to job (idempotent, MVP-safe)
-====================================================== */
+/**
+ * =========================
+ * ✅ CANONICAL APPLY (SINGLE WRITER)
+ * =========================
+ * - Deterministic ID: `${userId}_${jobId}`
+ * - Idempotent (no duplicates possible)
+ * - Minimal schema (rule-safe)
+ * - This is the ONLY real writer
+ */
 export async function applyToJob(params: {
   jobId: string;
   userId: string;
 }) {
   const { jobId, userId } = params;
 
-  const already = await hasAppliedToJob({ jobId, userId });
-  if (already) {
-    return { ok: true as const, alreadyApplied: true as const };
-  }
+  if (!jobId) throw new Error("JOB_ID_REQUIRED");
+  if (!userId) throw new Error("USER_ID_REQUIRED");
 
-  await addDoc(collection(db, "applications"), {
-    jobId,
+  const current = auth.currentUser;
+  if (!current) throw new Error("AUTH_REQUIRED");
+  if (current.uid !== userId) throw new Error("USER_MISMATCH");
+
+  const applicationId = `${userId}_${jobId}`;
+
+  const payload: JobApplicationDoc = {
     userId,
-    status: "applied" as ApplicationStatus,
+    jobId,
+    status: "applied",
     appliedAt: serverTimestamp(),
-  });
+  };
 
-  return { ok: true as const, alreadyApplied: false as const };
-}
-
-/* ======================================================
-   READ: Get all jobIds a user has applied to
-   (Used by ApplyJobButton everywhere)
-====================================================== */
-export async function getUserAppliedJobIds(userId: string) {
-  if (!userId) return new Set<string>();
-
-  const q = query(
-    collection(db, "applications"),
-    where("userId", "==", userId)
+  await setDoc(
+    doc(db, "applications", applicationId),
+    payload,
+    { merge: false } // hard overwrite, deterministic
   );
 
-  const snap = await getDocs(q);
-
-  const set = new Set<string>();
-  for (const d of snap.docs) {
-    const data = d.data();
-    if (data?.jobId) set.add(String(data.jobId));
-  }
-  return set;
+  return { applicationId };
 }
 
-/* ======================================================
-   READ: Employer — list applications for a job
-====================================================== */
-export type JobApplication = {
-  id: string;
-  jobId: string;
-  userId: string;
-  status: ApplicationStatus | string;
-  appliedAt?: any;
-};
+/**
+ * =========================
+ * ⚠️ TEMP LEGACY WRAPPER
+ * =========================
+ * - DO NOT write here
+ * - Exists only to avoid breaking old imports
+ * - Safe to delete once fully migrated
+ */
+export async function createJobApplication(
+  userId: string,
+  job: JobSummaryForApplication
+) {
+  if (!userId) throw new Error("Missing userId");
+  if (!job?.id) throw new Error("Missing job.id");
 
-export async function listApplicationsForJob(jobId: string) {
-  if (!jobId) return [];
+  await applyToJob({ userId, jobId: job.id });
+}
 
-  const q = query(
-    collection(db, "applications"),
-    where("jobId", "==", jobId),
-    orderBy("appliedAt", "desc")
-  );
+/**
+ * =========================
+ * Fetch Applied Job IDs
+ * =========================
+ */
+export async function getUserAppliedJobIds(
+  userId: string
+): Promise<Set<string>> {
+  const ids = new Set<string>();
+  if (!userId) return ids;
 
+  const appsRef = collection(db, "applications");
+
+  const q = query(appsRef, where("userId", "==", userId));
   const snap = await getDocs(q);
 
-  return snap.docs.map((d) => {
-    const data = d.data();
-    return {
-      id: d.id,
-      jobId: String(data.jobId),
-      userId: String(data.userId),
-      status: data.status,
-      appliedAt: data.appliedAt,
-    } as JobApplication;
+  snap.forEach((d) => {
+    const data = d.data() as any;
+    if (data?.jobId) ids.add(String(data.jobId));
   });
+
+  return ids;
 }

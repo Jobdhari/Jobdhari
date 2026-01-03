@@ -777,3 +777,34 @@ This caused writes to hit the wrong place / wrong shape and fail under rules.
 ### Prevention Rule
 Never maintain two profile storage locations.
 Before changing Firestore rules, confirm UI reads and writes the same Firestore path and shape.
+## FAIL-2026-01-03-01 — Candidate applications not showing / duplicating
+
+**Status:** ✅ Resolved  
+**Fixed In:** DEV-2026-01-03-03
+
+### Symptom
+- Candidate applied to jobs but dashboard appeared empty
+- “Application submitted” shown even when no record existed
+- Same job could be applied multiple times
+- Employer response count kept increasing incorrectly
+
+### Observed Behavior
+- Firestore writes were blocked by rules
+- Some application docs were missing jobId
+- Auto-ID application writer created duplicates
+- Browse Jobs briefly showed “Apply” before switching to “Applied”
+
+### Root Cause (confirmed)
+1. Firestore rules denied application writes (“Missing or insufficient permissions”)
+2. Multiple writers existed for applications (auto-ID + deterministic)
+3. Auto-ID writer allowed duplicate applications per job
+4. Applied-state UI relied on async auth + fetch, causing brief flicker
+
+### Impact
+- Core candidate apply flow broken
+- Employer response counts unreliable
+- Candidate trust degraded
+
+### Notes
+- Flicker is a known async-render limitation and accepted for MVP
+- Data correctness and idempotency are now fully enforced

@@ -1,72 +1,68 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { auth } from "@/lib/firebase";
-import { hasAppliedToJob } from "@/lib/firebase/applicationService";
-import { Button } from "@/components/ui/button";
+import {
+  applyToJob,
+  JobSummaryForApplication,
+} from "@/lib/firebase/applicationService";
 
-type ApplyJobButtonProps = {
-  jobId: string;
-};
+export default function ApplyJobButton({
+  job,
+  applied,
+  onApplied,
+}: {
+  job: JobSummaryForApplication;
+  applied: boolean;
+  onApplied?: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
 
-export default function ApplyJobButton({ jobId }: ApplyJobButtonProps) {
-  const [alreadyApplied, setAlreadyApplied] = useState(false);
-  const [checking, setChecking] = useState(true);
+  const label = useMemo(() => {
+    if (applied) return "Applied";
+    return loading ? "Applying..." : "Apply";
+  }, [applied, loading]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const disabled = applied || loading;
 
-    const unsub = auth.onAuthStateChanged(async (user) => {
-      if (!user) {
-        if (!cancelled) {
-          setAlreadyApplied(false);
-          setChecking(false);
-        }
-        return;
-      }
+  const handleApply = async () => {
+    const user = auth.currentUser;
 
-      setChecking(true);
-      try {
-        const ok = await hasAppliedToJob({ jobId, userId: user.uid });
-        if (!cancelled) setAlreadyApplied(ok);
-      } catch (e) {
-        console.error("Error checking applied status", e);
-        if (!cancelled) setAlreadyApplied(false);
-      } finally {
-        if (!cancelled) setChecking(false);
-      }
-    });
+    if (!user) {
+      toast.error("Please login to apply");
+      return;
+    }
 
-    return () => {
-      cancelled = true;
-      unsub();
-    };
-  }, [jobId]);
+    try {
+      setLoading(true);
 
-  if (checking) {
-    return (
-      <Button size="sm" disabled>
-        Checking…
-      </Button>
-    );
-  }
+      const res = await applyToJob({
+        jobId: job.id,
+        userId: user.uid,
+      });
 
-  if (alreadyApplied) {
-    return (
-      <Button
-        size="sm"
-        disabled
-        className="bg-green-600 text-white hover:bg-green-600"
-      >
-        Applied
-      </Button>
-    );
-  }
+      toast.success(`Applied ✅ (${res.applicationId})`);
+      onApplied?.();
+    } catch (err: any) {
+      console.error("Apply failed:", err);
+      toast.error(err?.message || "Missing or insufficient permissions");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <Button size="sm" asChild>
-      <Link href={`/apply/${jobId}`}>Apply</Link>
-    </Button>
+    <button
+      onClick={handleApply}
+      disabled={disabled}
+      className={`px-3 py-2 text-sm rounded-lg ${
+        disabled
+          ? "bg-gray-200 text-gray-700 cursor-not-allowed"
+          : "bg-orange-500 text-white hover:bg-orange-600"
+      }`}
+    >
+      {label}
+    </button>
   );
 }

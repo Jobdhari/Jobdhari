@@ -861,3 +861,22 @@ Candidate profile must be stored and updated only under:
 ### Result
 - Candidate name/phone saves successfully
 - No “Missing or insufficient permissions” during profile edit
+## DEV-2026-01-03-03 — Stabilize candidate application flow (P0)
+
+### Change Summary
+- Fixed Firestore rules to allow valid candidate application writes
+- Enforced single-writer rule for applications
+- Made job application idempotent using deterministic document IDs
+- Standardized canonical application schema
+- Prevented duplicate applications and inflated employer responses
+- Improved applied-state stability with immediate UI updates
+- Documented async flicker as acceptable MVP limitation
+
+### Files Touched
+- src/lib/firebase/applicationService.ts
+- src/components/jobs/ApplyJobButton.tsx
+- src/app/jobs/JobsPageClient.tsx
+- Firestore security rules
+
+### Related Failures
+- FAIL-2026-01-03-01

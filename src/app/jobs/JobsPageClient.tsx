@@ -14,6 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import ApplyJobButton from "@/components/jobs/ApplyJobButton";
 import { listPublicJobs, PublicJob } from "@/lib/firebase/publicJobsService";
+import { getUserAppliedJobIds } from "@/lib/firebase/applicationService";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 
 type ExpKey = "any" | "fresher" | "1-3" | "3-5" | "5+";
 
@@ -36,10 +39,44 @@ export default function JobsClient() {
   const [loc, setLoc] = useState(locParam);
   const [exp, setExp] = useState<ExpKey>(expParam);
 
+  const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
+
   useEffect(() => setQuery(qParam), [qParam]);
   useEffect(() => setLoc(locParam), [locParam]);
   useEffect(() => setExp(expParam), [expParam]);
 
+  /**
+   * 🔹 NEW: Load cached applied jobIds instantly (prevents flicker)
+   */
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("jobdhari_appliedJobIds");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setAppliedJobIds(new Set(parsed));
+        }
+      }
+    } catch {
+      // ignore cache errors
+    }
+  }, []);
+
+  /**
+   * 🔹 NEW: Persist applied jobIds whenever they change
+   */
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        "jobdhari_appliedJobIds",
+        JSON.stringify(Array.from(appliedJobIds))
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [appliedJobIds]);
+
+  // Load jobs
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -50,6 +87,26 @@ export default function JobsClient() {
         setLoading(false);
       }
     })();
+  }, []);
+
+  /**
+   * 🔹 Existing Firestore sync (source of truth) — DO NOT REMOVE
+   */
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setAppliedJobIds(new Set());
+        return;
+      }
+      try {
+        const ids = await getUserAppliedJobIds(user.uid);
+        setAppliedJobIds(ids); // Firestore overrides cache if needed
+      } catch (err) {
+        console.error("Failed to load applied job ids:", err);
+      }
+    });
+
+    return () => unsub();
   }, []);
 
   const filtered = useMemo(() => {
@@ -100,20 +157,38 @@ export default function JobsClient() {
       {loading ? (
         <div>Loading…</div>
       ) : (
-        filtered.map((job) => (
-          <div key={job.id} className="border p-4 rounded">
-            <div className="font-semibold">{job.title}</div>
-            <div className="text-sm text-muted-foreground">
-              {job.companyName} • {job.location}
+        filtered.map((job) => {
+          const applied = appliedJobIds.has(job.id);
+
+          return (
+            <div key={job.id} className="border p-4 rounded">
+              <div className="font-semibold">{job.title}</div>
+              <div className="text-sm text-muted-foreground">
+                {job.companyName} • {job.location}
+              </div>
+
+              <div className="mt-2 flex gap-2">
+                <Button size="sm" variant="outline" asChild>
+                  <Link href={`/jobs/${job.id}`}>View</Link>
+                </Button>
+
+                <ApplyJobButton
+                  job={{
+                    id: job.id,
+                    title: job.title,
+                    companyName: job.companyName,
+                    location: job.location,
+                    category: job.category,
+                  }}
+                  applied={applied}
+                  onApplied={() => {
+                    setAppliedJobIds((prev) => new Set(prev).add(job.id));
+                  }}
+                />
+              </div>
             </div>
-            <div className="mt-2 flex gap-2">
-              <Button size="sm" variant="outline" asChild>
-                <Link href={`/jobs/${job.id}`}>View</Link>
-              </Button>
-              <ApplyJobButton jobId={job.id} />
-            </div>
-          </div>
-        ))
+          );
+        })
       )}
     </div>
   );
