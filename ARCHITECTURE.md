@@ -43,7 +43,11 @@ Firestore collections: users, jobs, applications, counters
 
 Jobs document fields (minimum canonical):
 
-jobDhariId, title, companyName, location, category, description
+### Job IDs
+- Firestore document ID is the canonical job ID
+- jobDhariId (e.g. JOBDHARI-0001) is a human-readable identifier
+- Generated only via `/counters/jobs`
+- Required for new jobs; legacy jobs may not have it, title, companyName, location, category, description
 
 status, isPublished
 
@@ -97,7 +101,11 @@ Known issue: duplicate sidebar rendering (layout composition problem)
 
 ### jobs (CRITICAL COLLECTION)
 Required fields:
-- jobDhariId
+- ### Job IDs
+- Firestore document ID is the canonical job ID
+- jobDhariId (e.g. JOBDHARI-0001) is a human-readable identifier
+- Generated only via `/counters/jobs`
+- Required for new jobs; legacy jobs may not have it
 - title
 - companyName
 - location
@@ -121,7 +129,7 @@ Timestamps:
 - appliedAt
 
 ### counters
-- jobPosts (used for sequential JobDhari IDs)
+
 
 ---
 
