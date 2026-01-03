@@ -1,255 +1,155 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { auth, db } from "@/lib/firebase";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  orderBy,
-  query,
-  Timestamp,
-  where,
-} from "firebase/firestore";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { toast } from "sonner";
 
-type PageProps = {
-  params: {
-    id: string; // job document id
-  };
-};
+import EmployerGate from "@/components/auth/EmployerGate";
+import { Button } from "@/components/ui/button";
+import { getEmployerJobById } from "@/lib/firebase/employerJobsService";
 
-type JobDetails = {
-  id: string;
-  jobDhariId?: string;
-  title: string;
-  companyName?: string;
-  location?: string;
-  pincode?: string;
-  status?: string;
-  createdAt?: Timestamp | null;
-};
+type JobDetails = Awaited<ReturnType<typeof getEmployerJobById>>;
 
-type JobApplicationRow = {
-  id: string;
-  userId: string;
-  email?: string | null;
-  appliedAt?: Date | null;
-  status: string;
-};
-
-const EmployerJobApplicationsPage: React.FC<PageProps> = ({ params }) => {
+export default function EmployerJobDetailsPage() {
+  const params = useParams<{ id: string }>();
+  const jobId = String(params?.id || "");
   const router = useRouter();
-  const jobId = params.id;
 
-  const [job, setJob] = useState<JobDetails | null>(null);
-  const [applications, setApplications] = useState<JobApplicationRow[]>([]);
+  const [job, setJob] = useState<JobDetails>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setError(null);
+    let alive = true;
 
-      const user = auth.currentUser;
-      if (!user) {
-        setError("You must be logged in as an employer to view applicants.");
-        setLoading(false);
-        return;
-      }
-
+    (async () => {
       try {
-        // 1) Load the job document
-        const jobRef = doc(db, "jobs", jobId);
-        const jobSnap = await getDoc(jobRef);
-
-        if (!jobSnap.exists()) {
-          setError("Job not found.");
-          setLoading(false);
-          return;
-        }
-
-        const jobData = jobSnap.data() as any;
-        setJob({
-          id: jobSnap.id,
-          jobDhariId: jobData.jobDhariId,
-          title: jobData.title ?? "Untitled Job",
-          companyName: jobData.companyName ?? "",
-          location: jobData.location ?? "",
-          pincode: jobData.pincode ?? "",
-          status: jobData.status ?? "open",
-          createdAt: jobData.createdAt ?? null,
-        });
-
-        // 2) Load all applications for this job
-        const appsRef = collection(db, "applications");
-        const q = query(
-          appsRef,
-          where("jobId", "==", jobId),
-          orderBy("appliedAt", "desc")
-        );
-
-        const appsSnap = await getDocs(q);
-        const rows: JobApplicationRow[] = [];
-
-        appsSnap.forEach((docSnap) => {
-          const data = docSnap.data() as any;
-          rows.push({
-            id: docSnap.id,
-            userId: data.userId,
-            email: data.email ?? null, // if you start storing email later
-            appliedAt: data.appliedAt
-              ? (data.appliedAt as Timestamp).toDate()
-              : null,
-            status: data.status ?? "applied",
-          });
-        });
-
-        setApplications(rows);
-      } catch (err: any) {
-        console.error("Error loading job/applications:", err);
-        setError(err?.message || "Failed to load job applications.");
+        setLoading(true);
+        const data = await getEmployerJobById({ jobId });
+        if (!alive) return;
+        setJob(data);
+      } catch (e) {
+        console.error(e);
+        toast.error("Failed to load job");
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
+    })();
+
+    return () => {
+      alive = false;
     };
-
-    if (jobId) {
-      loadData();
-    }
   }, [jobId]);
-
-  const formatDate = (d?: Date | null) => {
-    if (!d) return "";
-    return d.toLocaleString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-sm text-gray-600">Loading job and applicants...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <h1 className="text-xl font-semibold mb-2">Unable to load job</h1>
-          <p className="text-sm text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={() => router.back()}
-            className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
-          >
-            Go back
-          </button>
-        </div>
-      </div>
+      <EmployerGate>
+        <div className="p-6 text-muted-foreground">Loading job…</div>
+      </EmployerGate>
     );
   }
 
   if (!job) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-sm text-gray-600">Job not found.</p>
-      </div>
+      <EmployerGate>
+        <div className="p-6 text-muted-foreground">Job not found.</div>
+      </EmployerGate>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex justify-center px-4 py-8">
-      <div className="w-full max-w-3xl bg-white border border-gray-200 shadow-sm rounded-2xl p-6 md:p-8">
-        {/* Job header */}
-        <div className="flex items-start justify-between gap-3 mb-4">
+    <EmployerGate>
+      <div className="mx-auto max-w-3xl p-6 space-y-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-lg font-semibold text-gray-900">
-                {job.title}
-              </h1>
-              {job.jobDhariId && (
-                <span className="inline-flex items-center rounded-full border border-gray-200 px-2 py-0.5 text-[10px] uppercase tracking-wide text-gray-600 bg-gray-50">
-                  {job.jobDhariId}
-                </span>
-              )}
+            <h1 className="text-2xl font-bold">{job.title}</h1>
+            <div className="text-sm text-muted-foreground">
+              {job.companyName} • {job.location}
             </div>
-            <p className="text-xs text-gray-700">
-              {job.companyName || "Company not specified"}
-            </p>
-            <p className="text-xs text-gray-500">
-              {job.location}
-              {job.pincode ? ` • ${job.pincode}` : ""}
-            </p>
-            <p className="text-[10px] text-gray-500 mt-1">
-              Status:{" "}
-              <span className="font-medium uppercase">
-                {job.status || "open"}
-              </span>
-              {job.createdAt && (
-                <>
-                  {" "}
-                  • Posted on{" "}
-                  {job.createdAt
-                    ? formatDate(job.createdAt.toDate())
-                    : ""}
-                </>
-              )}
-            </p>
+
+            {job.jobDhariId ? (
+              <div className="mt-2 inline-flex items-center rounded-md border px-2 py-1 text-xs font-mono text-gray-700">
+                {job.jobDhariId}
+              </div>
+            ) : (
+              <div className="mt-2 text-xs text-gray-400">
+                JobDhari ID not available (legacy job)
+              </div>
+            )}
           </div>
-          <button
-            onClick={() => router.push("/employer/my-jobs")}
-            className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-800 hover:bg-gray-50"
-          >
-            Back to My Jobs
-          </button>
+
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link href={`/employer/jobs/${jobId}/responses`}>
+                View responses
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href={`/employer/jobs/${jobId}/edit`}>Edit</Link>
+            </Button>
+          </div>
         </div>
 
-        <hr className="my-4" />
-
-        <h2 className="text-sm font-semibold text-gray-900 mb-2">
-          Applicants ({applications.length})
-        </h2>
-
-        {applications.length === 0 ? (
-          <p className="text-sm text-gray-600">
-            No one has applied to this job yet.
-          </p>
-        ) : (
-          <div className="mt-2 space-y-2">
-            {applications.map((app) => (
-              <div
-                key={app.id}
-                className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
-              >
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-gray-900">
-                    {app.email || "Candidate"}
-                  </span>
-                  <span className="text-xs text-gray-600">
-                    User ID: {app.userId}
-                  </span>
-                  <span className="text-[10px] text-gray-500">
-                    Applied: {formatDate(app.appliedAt)}
-                  </span>
-                </div>
-                <span className="inline-flex rounded-full bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide">
-                  {app.status}
-                </span>
-              </div>
-            ))}
+        {/* Details */}
+        <div className="rounded-lg border p-4 space-y-3">
+          <div className="text-sm">
+            <span className="font-medium">Status:</span> {job.status}
           </div>
-        )}
-      </div>
-    </div>
-  );
-};
+          <div className="text-sm">
+            <span className="font-medium">Published:</span>{" "}
+            {job.isPublished ? "Yes" : "No"}
+          </div>
+          <div className="text-sm">
+            <span className="font-medium">Category:</span>{" "}
+            {job.category || "—"}
+          </div>
 
-export default EmployerJobApplicationsPage;
+          {job.description ? (
+            <div className="pt-2 text-sm whitespace-pre-wrap">
+              {job.description}
+            </div>
+          ) : (
+            <div className="pt-2 text-sm text-muted-foreground">
+              No description
+            </div>
+          )}
+        </div>
+
+        {/* Share */}
+        <div className="rounded-lg border p-4">
+          <div className="font-medium mb-2">Share</div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              disabled={!job.jobDhariId}
+              onClick={async () => {
+                if (!job.jobDhariId) return;
+                await navigator.clipboard.writeText(job.jobDhariId);
+                toast.success("Job ID copied");
+              }}
+            >
+              Copy Job ID
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={async () => {
+                const link = `${window.location.origin}/jobs/${jobId}`;
+                await navigator.clipboard.writeText(link);
+                toast.success("Public job link copied");
+              }}
+            >
+              Copy Public Link
+            </Button>
+
+            <Button variant="ghost" onClick={() => router.push("/employer/my-jobs")}>
+              Back
+            </Button>
+          </div>
+        </div>
+      </div>
+    </EmployerGate>
+  );
+}
