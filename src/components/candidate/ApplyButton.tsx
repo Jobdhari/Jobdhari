@@ -30,7 +30,7 @@ export default function ApplyButton({
       await applyToJob({
         userId: user.uid,
         jobId,
-        resumeURL: resumeURL ?? null,
+  
       });
 
       // ✅ canonical landing
